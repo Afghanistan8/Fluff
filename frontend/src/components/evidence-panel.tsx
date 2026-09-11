@@ -32,6 +32,20 @@ const FAILURE_COPY: Record<string, string> = {
   window: 'No price sample fell inside the window.',
 }
 
+/**
+ * The contract records one failure code from a closed set, so two honest validators
+ * describe the same failure identically. It deliberately does not record the HTTP
+ * status, which can differ between them, so the likely causes are named here instead.
+ */
+function failureDetail(source: string, reason: string): string {
+  const base = FAILURE_COPY[reason] ?? 'This source could not produce a complete candle set.'
+  if (reason !== 'http') return base
+  if (source === 'COINGECKO') {
+    return `${base} For CoinGecko that is normally 401, meaning the path now needs a paid key, or 429, meaning rate limited.`
+  }
+  return `${base} Normally a rate limit or an outage at the venue.`
+}
+
 function SourceCard({ evidence }: { evidence: SourceEvidence }): ReactNode {
   const { source, status, vote, reason, rows } = evidence
 
@@ -53,7 +67,7 @@ function SourceCard({ evidence }: { evidence: SourceEvidence }): ReactNode {
         )}
       </CardHeader>
 
-      <CardBody className="flex-1">
+      <CardBody className="flex-1 space-y-3">
         {rows.length > 0 ? (
           <div className="-mx-1 overflow-x-auto px-1">
           <table className="w-full min-w-[16rem] text-sm">
@@ -95,13 +109,29 @@ function SourceCard({ evidence }: { evidence: SourceEvidence }): ReactNode {
               })}
             </tbody>
           </table>
+          <p className="mt-3 text-xs text-cream-faint">
+            Status <span className="text-cream-dim">{status}</span>
+            {status === 'TIE' ? ' · tied at the top, so this source cast no vote' : null}
+          </p>
           </div>
         ) : (
-          <p className="text-sm leading-relaxed text-cream-dim">
-            {status === 'UNAVAILABLE'
-              ? (FAILURE_COPY[reason] ?? 'This source could not produce a complete candle set.')
-              : 'Nothing has been read from this source yet.'}
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm leading-relaxed text-cream-dim">
+              {status === 'UNAVAILABLE'
+                ? failureDetail(source, reason)
+                : 'Nothing has been read from this source yet.'}
+            </p>
+            {status ? (
+              <p className="text-xs text-cream-faint">
+                Status <span className="text-cream-dim">{status}</span>
+                {reason ? (
+                  <>
+                    {' '}· reason <span className="text-cream-dim">{reason}</span>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+          </div>
         )}
       </CardBody>
     </Card>

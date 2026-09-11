@@ -4,6 +4,7 @@ import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-q
 import { useCallback } from 'react'
 
 import {
+  PAGE_LIMIT,
   getBettingState,
   getClaimableMarkets,
   getConfig,
@@ -60,19 +61,39 @@ export function useConfig(): UseQueryResult<ProtocolConfig> {
   })
 }
 
-export function useMarkets(offset = 0, limit = 50): UseQueryResult<Market[]> {
+/**
+ * Walk a paginated view to the end.
+ *
+ * The contract clamps every page to 50, so a single call silently truncates once more
+ * than 50 markets exist and windows simply vanish from the directory. This pages until
+ * a short page comes back, with a page budget so a runaway cannot hang the screen.
+ */
+async function readAllPages(
+  load: (offset: number, limit: number) => Promise<Market[]>,
+  maxPages = 20,
+): Promise<Market[]> {
+  const all: Market[] = []
+  for (let page = 0; page < maxPages; page += 1) {
+    const rows = await load(all.length, PAGE_LIMIT)
+    all.push(...rows)
+    if (rows.length < PAGE_LIMIT) break
+  }
+  return all
+}
+
+export function useMarkets(): UseQueryResult<Market[]> {
   return useQuery({
-    queryKey: queryKeys.markets(offset, limit),
-    queryFn: retrying(() => getMarkets(offset, limit)),
+    queryKey: queryKeys.markets(0, PAGE_LIMIT),
+    queryFn: retrying(() => readAllPages(getMarkets)),
     enabled: env.isConfigured,
     refetchInterval: LIVE_REFETCH_MS,
   })
 }
 
-export function useOpenMarkets(offset = 0, limit = 50): UseQueryResult<Market[]> {
+export function useOpenMarkets(): UseQueryResult<Market[]> {
   return useQuery({
-    queryKey: queryKeys.openMarkets(offset, limit),
-    queryFn: retrying(() => getOpenMarkets(offset, limit)),
+    queryKey: queryKeys.openMarkets(0, PAGE_LIMIT),
+    queryFn: retrying(() => readAllPages(getOpenMarkets)),
     enabled: env.isConfigured,
     refetchInterval: LIVE_REFETCH_MS,
   })
@@ -158,6 +179,7 @@ export interface SlotAvailability {
   aligned: boolean
 }
 
+/** Each slot is asked about directly, so this never depends on how many markets exist. */
 export function useSlotAvailability(
   category: string,
   starts: number[],

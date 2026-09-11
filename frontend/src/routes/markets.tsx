@@ -23,7 +23,7 @@ function Stat({ label, value }: { label: string; value: string }): ReactNode {
 }
 
 function MarketsPage(): ReactNode {
-  const markets = useMarkets(0, 50)
+  const markets = useMarkets()
   const now = useChainClock(markets.data?.[0]?.chainNow)
   const [filter, setFilter] = useState<MarketFilter>('ALL')
 

@@ -191,7 +191,7 @@ cd frontend && bun run typecheck && bun run test
 Copy `frontend/.env.example` to `frontend/.env` and fill in the deployed address:
 
 ```
-VITE_FLUFF_CONTRACT_ADDRESS=0x4611B896dB0B5EA49BB8D9229107b6Bd46701085
+VITE_FLUFF_CONTRACT_ADDRESS=0x13d318C4CDb688614DBCe3a6D49976624B4AB7B9
 VITE_GENLAYER_NETWORK=studionet
 VITE_GENLAYER_CHAIN_ID=61999
 ```
@@ -210,13 +210,13 @@ write is signed by the visitor's wallet, so it builds to a static bundle with no
 to run or keep warm.
 
 1. Import the repository, and set **Root Directory** to `frontend`.
-2. Add `VITE_FLUFF_CONTRACT_ADDRESS` under Environment Variables. The other two are
-   optional.
+2. Add `VITE_FLUFF_CONTRACT_ADDRESS` under Environment Variables, for the Production
+   environment. It is read when the bundle is built, not when a visitor loads the page.
 3. Deploy. `frontend/vercel.json` already sets the build command, the output directory
    and the single-page rewrite, so nothing else needs configuring.
 
-Vite inlines `VITE_*` variables at build time, so changing the contract address needs a
-redeploy, not just a restart.
+If the footer reads "No contract address in this build", the variable was missing when
+Vercel built, and a redeploy is needed after adding it.
 
 To check the production bundle locally before pushing:
 
@@ -228,17 +228,26 @@ cd frontend && bun run build && bun run start
 
 ## Deployment
 
-Fluff is live on the GenLayer Studio network:
+Everything needed to run or redeploy Fluff, in one table.
 
 | | |
 | --- | --- |
-| Contract | `0x4611B896dB0B5EA49BB8D9229107b6Bd46701085` |
+| Contract | `0x13d318C4CDb688614DBCe3a6D49976624B4AB7B9` |
 | Chain | GenLayer Studio Network |
-| Chain ID | 61999 |
+| Chain ID | 61999 (`0xf22f`) |
 | RPC | `https://studio.genlayer.com/api` |
+| Explorer | `https://explorer-studio.genlayer.com` |
+| Faucet | `https://studio.genlayer.com`, use its faucet button for your address |
 | Native token | GEN, 1 GEN = 10^18 base units |
+| Vercel root directory | `frontend` |
+| Vercel build env | `VITE_FLUFF_CONTRACT_ADDRESS` must be set **at build time** |
 
-To deploy your own, unlock the deployer account once and run:
+Vite inlines `VITE_*` when the bundle is built, so changing the address needs a
+redeploy, not a restart. The site footer prints the chain and the short contract
+address, linked to the explorer, so a build with a missing variable is visible on the
+page rather than looking like an empty market list.
+
+To deploy your own:
 
 ```bash
 genlayer config set network=studionet && genlayer deploy --contract contracts/Fluff.py

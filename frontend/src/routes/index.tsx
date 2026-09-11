@@ -35,23 +35,29 @@ const PROMISES = [
 ]
 
 function HomePage(): ReactNode {
-  const markets = useOpenMarkets(0, 12)
+  const markets = useOpenMarkets()
   const now = useChainClock(markets.data?.[0]?.chainNow)
 
-  // The soonest windows that are still bettable, which is what a visitor wants first.
+  // The soonest windows a visitor can still act on: live first, then the next to open.
+  // Chosen from every open market rather than whichever happened to be in the first
+  // page, so a busy board cannot hide the window that is about to lock.
   const upcoming = useMemo(() => {
-    const rows = markets.data ?? []
+    const phaseOf = (market: (typeof markets.data extends (infer T)[] | undefined ? T : never)) =>
+      derivePhase({
+        state: market.state,
+        marketStart: market.marketStart,
+        marketEnd: market.marketEnd,
+        now,
+      })
+    const rows = (markets.data ?? []).filter((market) => {
+      const phase = phaseOf(market)
+      return phase === 'LIVE' || phase === 'UPCOMING'
+    })
     return rows
-      .filter(
-        (market) =>
-          derivePhase({
-            state: market.state,
-            marketStart: market.marketStart,
-            marketEnd: market.marketEnd,
-            now,
-          }) !== 'PENDING_SETTLEMENT',
-      )
-      .sort((a, b) => a.marketStart - b.marketStart)
+      .sort((a, b) => {
+        const live = (m: typeof a) => (phaseOf(m) === 'LIVE' ? 0 : 1)
+        return live(a) - live(b) || a.marketStart - b.marketStart
+      })
       .slice(0, 3)
   }, [markets.data, now])
 

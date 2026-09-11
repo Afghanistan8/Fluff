@@ -42,7 +42,12 @@ const FAQ = [
   {
     question: 'What if a venue is down or returns a bad candle?',
     answer:
-      'That source is marked unavailable and casts no vote, with the reason recorded on chain. Two remaining sources that agree still settle the window, which is the point of requiring two rather than three.',
+      'That source is marked unavailable and casts no vote, with the reason recorded on chain and shown on the market page. Two remaining sources that agree still settle the window, which is the point of requiring two rather than three.',
+  },
+  {
+    question: 'How do I know a source actually voted?',
+    answer:
+      'Every settled window shows all three sources with their status: VALID with the token it picked, TIE when the top return was shared, or UNAVAILABLE with the reason code the contract stored. Nothing is hidden behind the 2-of-3 headline, so a source that has quietly stopped working is visible rather than assumed healthy.',
   },
   {
     question: 'What if the winning token has no backers?',
