@@ -29,7 +29,7 @@ function CreatePage(): ReactNode {
   // Slots are pinned to a coarse clock so the list does not reshuffle every second.
   const anchor = Math.floor(now / 300) * 300
   const slots = useMemo(() => upcomingSlots(anchor, SLOT_COUNT), [anchor])
-  const availability = useSlotAvailability(CATEGORY_ID, slots)
+  const availability = useSlotAvailability(slots)
 
   const [selected, setSelected] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -43,10 +43,11 @@ function CreatePage(): ReactNode {
         verify: async () => (await getMarketByCategoryStart(CATEGORY_ID, selected)).exists,
       })
       await refresh(null, wallet.address)
-      const created = await availability.refetch()
-      const marketId = created.data?.[selected]?.marketId
-      if (marketId != null) {
-        await navigate({ to: '/market/$id', params: { id: String(marketId) } })
+      // Ask the contract directly which market now holds this window, rather than
+      // waiting for the list query to come back around.
+      const created = await getMarketByCategoryStart(CATEGORY_ID, selected)
+      if (created.marketId != null) {
+        await navigate({ to: '/market/$id', params: { id: String(created.marketId) } })
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The window was not opened.')

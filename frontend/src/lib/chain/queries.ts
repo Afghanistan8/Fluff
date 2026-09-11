@@ -9,7 +9,6 @@ import {
   getClaimableMarkets,
   getConfig,
   getMarket,
-  getMarketByCategoryStart,
   getMarkets,
   getOpenMarkets,
   getSourceEvidence,
@@ -41,7 +40,6 @@ export const queryKeys = {
   claimable: (wallet: string) => ['fluff', 'claimable', wallet] as const,
   activity: (wallet: string) => ['fluff', 'activity', wallet] as const,
   activityCount: (wallet: string) => ['fluff', 'activityCount', wallet] as const,
-  slot: (category: string, start: number) => ['fluff', 'slot', category, start] as const,
 }
 
 /** Reads are safe to retry; writes never are. */
@@ -176,25 +174,38 @@ export function useActivityCount(wallet: string | null): UseQueryResult<number> 
 export interface SlotAvailability {
   exists: boolean
   marketId: number | null
-  aligned: boolean
 }
 
-/** Each slot is asked about directly, so this never depends on how many markets exist. */
-export function useSlotAvailability(
-  category: string,
-  starts: number[],
-): UseQueryResult<Record<number, SlotAvailability>> {
-  return useQuery({
-    queryKey: [...queryKeys.slot(category, starts[0] ?? 0), starts.length],
-    queryFn: retrying(async () => {
-      const results = await Promise.all(
-        starts.map(async (start) => [start, await getMarketByCategoryStart(category, start)] as const),
+/**
+ * Which half-hour slots are already taken.
+ *
+ * Derived from the market list rather than asked slot by slot. Asking directly meant
+ * 48 simultaneous `gen_call` requests, which the node dropped: the create page showed
+ * "Failed to fetch" and no slots at all. There is one category, so the list already
+ * carries every answer, and this costs no extra requests.
+ */
+export function useSlotAvailability(starts: number[]): {
+  data: Record<number, SlotAvailability> | undefined
+  isLoading: boolean
+  error: unknown
+  refetch: () => Promise<unknown>
+} {
+  const markets = useMarkets()
+  const taken = new Map((markets.data ?? []).map((m) => [m.marketStart, m.id]))
+  const data = markets.data
+    ? Object.fromEntries(
+        starts.map((start) => [
+          start,
+          { exists: taken.has(start), marketId: taken.get(start) ?? null },
+        ]),
       )
-      return Object.fromEntries(results) as Record<number, SlotAvailability>
-    }),
-    enabled: env.isConfigured && starts.length > 0,
-    staleTime: 30_000,
-  })
+    : undefined
+  return {
+    data,
+    isLoading: markets.isLoading,
+    error: markets.error,
+    refetch: markets.refetch,
+  }
 }
 
 /**

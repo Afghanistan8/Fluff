@@ -125,6 +125,8 @@ function SiteFooter(): ReactNode {
               >
                 {shortAddress(env.contractAddress)}
               </a>
+              {' · '}
+              <span title="commit this bundle was built from">{env.buildCommit}</span>
             </>
           ) : (
             <span className="text-alarm">No contract address in this build</span>

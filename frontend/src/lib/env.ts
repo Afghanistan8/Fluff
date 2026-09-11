@@ -13,7 +13,11 @@ const contractAddress = readString('VITE_FLUFF_CONTRACT_ADDRESS', ZERO_ADDRESS)
 const network = readString('VITE_GENLAYER_NETWORK', 'studionet')
 const chainId = Number(readString('VITE_GENLAYER_CHAIN_ID', '61999'))
 
+/** The commit this bundle was built from, stamped in by Vite. */
+const buildCommit = typeof __BUILD_COMMIT__ === 'string' ? __BUILD_COMMIT__ : 'unknown'
+
 export const env = {
+  buildCommit,
   contractAddress: contractAddress as `0x${string}`,
   network,
   chainId: Number.isFinite(chainId) ? chainId : 61999,
