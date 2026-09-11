@@ -28,11 +28,16 @@ Prices, winners and payout amounts are read back from the contract.
 
 | Item | Value |
 | --- | --- |
-| Chain | GenLayer Bradbury Testnet |
-| Chain ID | 4221 |
+| Chain | GenLayer Studio Network |
+| Chain ID | 61999 |
+| RPC | `https://studio.genlayer.com/api` |
 | Native token | GEN |
 | Base units | 1 GEN = 10^18 |
-| Runtime | GenVM, Python Intelligent Contract |
+| Runtime | GenVM v0.2.16, Python Intelligent Contract |
+
+The contract header pins the GenVM runner to an exact hash. GenVM refuses the floating
+`:latest` and `:test` tags outside debug mode: a tagged contract is accepted by
+consensus and then fails at load as `invalid_contract`, with no contract created.
 
 ---
 
@@ -198,7 +203,7 @@ frontend/src/
   routes/            file-based TanStack routes
   lib/chain/         genlayer-js client, contract adapter, typed calls
   lib/market/        phase derivation, GMT+1 formatting, payout preview maths
-  lib/wallet/        injected wallet detect, Bradbury add/switch, tx lifecycle
+  lib/wallet/        injected wallet detect, network add/switch, tx lifecycle
   components/        presentation, shadcn primitives underneath
 ```
 
@@ -217,6 +222,10 @@ shown as done before the chain says it is done.
 
 ```
 VITE_FLUFF_CONTRACT_ADDRESS   deployed Fluff address
-VITE_GENLAYER_NETWORK         bradbury
-VITE_GENLAYER_CHAIN_ID        4221
+VITE_GENLAYER_NETWORK         studionet
+VITE_GENLAYER_CHAIN_ID        61999
 ```
+
+Only the contract address is load-bearing. `src/lib/chain/network.ts` is authoritative
+for the network itself, so a stale value in the environment cannot put the client on
+the wrong chain.

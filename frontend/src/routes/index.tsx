@@ -62,7 +62,7 @@ function HomePage(): ReactNode {
           <div className="max-w-3xl">
             <Badge tone="accent">
               <PuffMark className="h-4 w-4" />
-              Permissionless on GenLayer Bradbury
+              Permissionless on GenLayer
             </Badge>
 
             <h1 className="mt-6 text-4xl font-semibold leading-tight tracking-tight text-cream sm:text-6xl">

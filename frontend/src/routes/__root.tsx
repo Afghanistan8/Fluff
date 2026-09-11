@@ -103,7 +103,7 @@ function SiteFooter(): ReactNode {
   return (
     <footer className="mt-20 border-t border-line">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-xs text-cream-faint sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p>Fluff · permissionless 30-minute token dominance on GenLayer Bradbury.</p>
+        <p>Fluff · permissionless 30-minute token dominance on GenLayer.</p>
         <p>
           Zero protocol fee. Settlement reads CoinGecko, Bitget and Binance independently.
         </p>

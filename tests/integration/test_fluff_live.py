@@ -3,7 +3,7 @@
 These need a running node and a funded account, so they are skipped unless
 `FLUFF_INTEGRATION=1` is set. Run them with:
 
-    FLUFF_INTEGRATION=1 gltest tests/integration/ --network testnet_bradbury
+    FLUFF_INTEGRATION=1 gltest tests/integration/ --network studionet
 
 Settlement is deliberately not forced here. It reads three live venues over a real
 half-hour window, so a window has to pass before `settle_market` can succeed. What these

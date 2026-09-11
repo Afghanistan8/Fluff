@@ -1,30 +1,18 @@
 # Fluff — GenLayer test and deploy configuration.
 #
-# The direct suite under tests/direct/ needs no node: it runs the contract natively
-# against the SDK. The integration suite under tests/integration/ needs one.
+# Fluff targets the GenLayer Studio network (chain 61999).
 #
-#   pytest tests/direct/ -q
-#   gltest tests/integration/ --network testnet_bradbury
+#   pytest tests/direct/ -q                       # no node needed
+#   FLUFF_INTEGRATION=1 gltest tests/integration/ --network studionet
 #
-# To deploy or run integration tests against Bradbury, add a funded key under
-# networks.testnet_bradbury.accounts. Keep it out of version control:
-#
-#   networks:
-#     testnet_bradbury:
-#       accounts:
-#         - "0xyour_private_key"
+# The direct suite runs the contract natively against the SDK. The integration suite
+# needs a node and a funded account; add a key under networks.studionet.accounts and
+# keep it out of version control.
 
 networks:
-  default: localnet
-
-  localnet:
-    leader_only: false
+  default: studionet
 
   studionet:
-    leader_only: false
-
-  # Chain 4221, https://rpc-bradbury.genlayer.com
-  testnet_bradbury:
     leader_only: false
 
 paths:

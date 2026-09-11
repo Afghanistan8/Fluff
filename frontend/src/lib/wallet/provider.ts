@@ -1,6 +1,13 @@
 /** Injected wallet detection and network switching. */
 
-import { CHAIN_ID, CHAIN_ID_HEX, network } from '~/lib/chain/client'
+import {
+  CHAIN_ID,
+  CHAIN_ID_HEX,
+  CHAIN_NAME,
+  EXPLORER_URL,
+  NATIVE_CURRENCY,
+  RPC_URL,
+} from '~/lib/chain/network'
 
 export interface Eip1193Provider {
   request: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>
@@ -44,10 +51,10 @@ export async function readChainId(provider: Eip1193Provider): Promise<number | n
 
 const NETWORK_PARAMS = {
   chainId: CHAIN_ID_HEX,
-  chainName: network.chainName,
-  nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 },
-  rpcUrls: [network.rpcUrl],
-  ...(network.explorerUrl ? { blockExplorerUrls: [network.explorerUrl] } : {}),
+  chainName: CHAIN_NAME,
+  nativeCurrency: NATIVE_CURRENCY,
+  rpcUrls: [RPC_URL],
+  ...(EXPLORER_URL ? { blockExplorerUrls: [EXPLORER_URL] } : {}),
 }
 
 /** Switch to the configured network, adding it to the wallet if it is not there yet. */

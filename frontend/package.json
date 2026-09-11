@@ -3,14 +3,15 @@
   "private": true,
   "type": "module",
   "version": "1.0.0",
-  "description": "Fluff — a permissionless 30-minute token dominance market on GenLayer.",
+  "description": "Fluff \u2014 a permissionless 30-minute token dominance market on GenLayer.",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "start": "node .output/server/index.mjs",
+    "start": "npx serve dist/client --single",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",

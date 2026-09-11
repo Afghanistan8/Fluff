@@ -114,7 +114,7 @@ export function ConnectPrompt({ body }: { body: string }): ReactNode {
       body={
         wallet.hasWallet
           ? body
-          : 'Fluff needs a browser wallet on Bradbury to read your positions and sign transactions.'
+          : 'Fluff needs a browser wallet on the GenLayer Studio network to read your positions and sign transactions.'
       }
       action={
         wallet.hasWallet ? (

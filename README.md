@@ -171,7 +171,7 @@ run.
 Integration tests need a node and a funded account:
 
 ```bash
-FLUFF_INTEGRATION=1 gltest tests/integration/ --network testnet_bradbury
+FLUFF_INTEGRATION=1 gltest tests/integration/ --network studionet
 ```
 
 ### Frontend
@@ -191,47 +191,62 @@ cd frontend && bun run typecheck && bun run test
 Copy `frontend/.env.example` to `frontend/.env` and fill in the deployed address:
 
 ```
-VITE_FLUFF_CONTRACT_ADDRESS=0x…
-VITE_GENLAYER_NETWORK=bradbury
-VITE_GENLAYER_CHAIN_ID=4221
+VITE_FLUFF_CONTRACT_ADDRESS=0x4611B896dB0B5EA49BB8D9229107b6Bd46701085
+VITE_GENLAYER_NETWORK=studionet
+VITE_GENLAYER_CHAIN_ID=61999
 ```
 
-`VITE_GENLAYER_NETWORK` accepts `bradbury` or `studionet` and selects the RPC endpoint
-and the chain id together. The chain id variable is informational.
+Only the contract address is load-bearing. `src/lib/chain/network.ts` is authoritative
+for the network, so a stale value in the environment cannot put the client on the wrong
+chain.
 
 Until a real address is set, every screen says so plainly rather than showing invented
 data.
+
+### Deploying to Vercel
+
+The client has no server side. Every read is an RPC call from the browser and every
+write is signed by the visitor's wallet, so it builds to a static bundle with nothing
+to run or keep warm.
+
+1. Import the repository, and set **Root Directory** to `frontend`.
+2. Add `VITE_FLUFF_CONTRACT_ADDRESS` under Environment Variables. The other two are
+   optional.
+3. Deploy. `frontend/vercel.json` already sets the build command, the output directory
+   and the single-page rewrite, so nothing else needs configuring.
+
+Vite inlines `VITE_*` variables at build time, so changing the contract address needs a
+redeploy, not just a restart.
+
+To check the production bundle locally before pushing:
+
+```bash
+cd frontend && bun run build && bun run start
+```
 
 ---
 
 ## Deployment
 
-Fluff is live on the GenLayer Studio network (chain 61999):
+Fluff is live on the GenLayer Studio network:
 
+| | |
+| --- | --- |
+| Contract | `0x4611B896dB0B5EA49BB8D9229107b6Bd46701085` |
+| Chain | GenLayer Studio Network |
+| Chain ID | 61999 |
+| RPC | `https://studio.genlayer.com/api` |
+| Native token | GEN, 1 GEN = 10^18 base units |
+
+To deploy your own, unlock the deployer account once and run:
+
+```bash
+genlayer config set network=studionet && genlayer deploy --contract contracts/Fluff.py
 ```
-0x4611B896dB0B5EA49BB8D9229107b6Bd46701085
-```
-
-Also deployed on the Studio dev network (chain 61997) at
-`0x230039c2B8aB8d421f7b0B4ccA10b260403CD49E`, from an earlier build.
-
-## Networks
-
-Fluff behaves identically on every GenLayer network. The client picks one at build
-time, so moving a deployment is one environment variable plus the new address.
-
-| | Bradbury | Studio | Studio dev |
-| --- | --- | --- | --- |
-| `VITE_GENLAYER_NETWORK` | `bradbury` | `studionet` | `studiodev` |
-| Chain ID | 4221 | 61999 | 61997 |
-| RPC | `rpc-bradbury.genlayer.com` | `studio.genlayer.com/api` | `studio-dev.genlayer.com/api` |
-| Explorer | yes | none | yes |
-
-Native token is GEN on all three, 1 GEN = 10^18 base units.
 
 ### Pin the runner, never tag it
 
-The first line of `contracts/Fluff.py` names the GenVM runner. It must be an exact
+The first line of `contracts/Fluff.py` names the GenVM runner, and it must be an exact
 hash:
 
 ```
@@ -239,57 +254,34 @@ hash:
 ```
 
 GenVM refuses the floating `:latest` and `:test` tags outside debug mode. A tagged
-contract still reaches consensus and is still marked `ACCEPTED`, then fails at load
-with `invalid_contract` and no contract is created. The node log is the only place
-that says why:
+contract still reaches consensus and is still reported `ACCEPTED`, then fails at load
+with `invalid_contract` and no contract is created. The node log is the only place that
+says why:
 
 ```
 :test/ :latest runner used in non-debug mode, this is not allowed
 ```
 
 The hash above is the runner GenVM v0.2.16 ships, which is what the Studio network
-runs. A network on a different GenVM needs its own hash, and a pin the target cannot
-resolve fails as `runner not available`. `gltest` caches the runners it downloads
-under `~/.cache/gltest-direct/extracted/<version>/py-genlayer/<hash>`, which is where
-these hashes come from.
+runs. `gltest` caches runners under
+`~/.cache/gltest-direct/extracted/<version>/py-genlayer/<hash>`, which is where it
+comes from.
 
-### Which SDK a network runs
+### Check before you spend
 
-This matters more than it looks. The contract is executed by the GenVM the network
-ships, and that SDK's surface changed between the 0.2 and 0.3 releases: 0.2 nests the
-API under `genlayer.gl` and exports `allow_storage`, while 0.3 lifts it to the package
-root and renames it `allow`. A contract written for the wrong one is rejected at load
-time as `invalid_contract`, which the testnet RPCs report as an opaque code with no
-traceback.
+The SDK surface also moved between GenVM releases: 0.2 nests the API under
+`genlayer.gl` and exports `allow_storage`, 0.3 lifts it to the package root as `allow`.
+`contracts/Fluff.py` resolves both, so it loads either way.
 
-`contracts/Fluff.py` resolves both at import, so one file works either way. The studio
-endpoints return real tracebacks and will compile a contract for free, which is what
-`tests/direct/test_live_compile.py` uses to catch both this and a bad runner pin:
+Both failure modes look identical from a testnet RPC, which reports only an opaque
+code. The Studio endpoint will compile a contract for free and return the real
+traceback, which is what this checks:
 
 ```bash
 pytest tests/direct/test_live_compile.py -q
 ```
 
-To deploy with the GenLayer CLI, unlock the deployer account once and point the CLI at
-the network you want:
-
-```bash
-genlayer config set network=testnet-bradbury   # or studionet
-genlayer deploy --contract contracts/Fluff.py
-```
-
-`genlayer config set` does not validate the name, so a typo silently produces an
-unusable network. Confirm with `genlayer account show` before deploying.
-
-To deploy through `gltest` instead, add a funded key under
-`networks.testnet_bradbury.accounts` in `gltest.config.yaml` and keep it out of version
-control.
-
-### Line endings
-
-GenVM reads the contract's first line as a runner spec. A CRLF file ends that line with a
-stray carriage return, so the contract must stay LF on every platform. `.gitattributes`
-pins this; do not let an editor rewrite `contracts/Fluff.py` to CRLF.
+Run it before any deploy. It costs nothing and needs no funds.
 
 ---
 

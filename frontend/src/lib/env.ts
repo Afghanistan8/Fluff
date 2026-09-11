@@ -8,15 +8,15 @@ function readString(key: string, fallback: string): string {
 }
 
 const contractAddress = readString('VITE_FLUFF_CONTRACT_ADDRESS', ZERO_ADDRESS)
-const network = readString('VITE_GENLAYER_NETWORK', 'bradbury')
-// Informational. The selected network in networks.ts is authoritative for the
-// chain id, so the two can never disagree at runtime.
-const chainId = Number(readString('VITE_GENLAYER_CHAIN_ID', '4221'))
+// Informational only. `lib/chain/network.ts` is authoritative for the network and its
+// chain id, so nothing here can put the client on the wrong chain.
+const network = readString('VITE_GENLAYER_NETWORK', 'studionet')
+const chainId = Number(readString('VITE_GENLAYER_CHAIN_ID', '61999'))
 
 export const env = {
   contractAddress: contractAddress as `0x${string}`,
   network,
-  chainId: Number.isFinite(chainId) ? chainId : 4221,
+  chainId: Number.isFinite(chainId) ? chainId : 61999,
   /** False until a real address is configured; every screen checks this first. */
   isConfigured: /^0x[0-9a-fA-F]{40}$/.test(contractAddress) && contractAddress !== ZERO_ADDRESS,
 } as const

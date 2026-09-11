@@ -216,7 +216,7 @@ export function BetPanel({
           </Button>
         ) : !wallet.onCorrectNetwork ? (
           <Button className="w-full" size="lg" onClick={() => void wallet.switchNetwork()}>
-            Switch to Bradbury
+            Switch network
           </Button>
         ) : (
           <Button

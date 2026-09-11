@@ -21,7 +21,7 @@ export const IDLE_TX: TxState = { phase: 'idle', hash: null, error: null, label:
 export const TX_PHASE_COPY: Record<TxPhase, string> = {
   idle: '',
   submitting: 'Waiting for your wallet',
-  confirming: 'Confirming on Bradbury',
+  confirming: 'Confirming on chain',
   success: 'Confirmed',
   failure: 'Did not go through',
 }
