@@ -54,7 +54,7 @@ there is no HTML scraping fallback anywhere in the design.
 **CoinGecko** — one request per token:
 
 ```
-https://api.coingecko.com/api/v3/coins/{id}/market_chart/range?vs_currency=usd&from={start}&to={end}
+https://api.coingecko.com/api/v3/coins/{id}/market_chart?vs_currency=usd&days=1
 ```
 
 | Token | `{id}` |
@@ -62,6 +62,16 @@ https://api.coingecko.com/api/v3/coins/{id}/market_chart/range?vs_currency=usd&f
 | ZEC | `zcash` |
 | BNB | `binancecoin` |
 | SOL | `solana` |
+
+This used to be `/market_chart/range`. That path now answers **HTTP 401**
+(`error_code 10012`) without a paid key, so CoinGecko cast no vote on every settle, and
+a single disagreement between the other two venues left every market inconclusive. The
+`days=1` chart is public and needs no key.
+
+It returns the last 24 hours at roughly 5-minute granularity, which always covers a
+window whose settlement deadline is three hours after it ends. Most of the payload sits
+outside the window, so the parser selects purely by timestamp and rejects a window it
+has no samples for.
 
 **Bitget** — one request per token:
 
@@ -79,6 +89,26 @@ https://api.binance.com/api/v3/klines?symbol={ASSET}USDT&interval=30m&startTime=
 
 `{ASSET}USDT` is `ZECUSDT`, `BNBUSDT`, `SOLUSDT`.
 
+### 2.1.1 Verify before trusting a settlement
+
+`scripts/check_sources.py` hits all nine live URLs over the last completed window and
+prints the status, open, close and the winner each source would vote for:
+
+```bash
+python scripts/check_sources.py
+```
+
+Recorded run, window `1789140600`–`1789142400` (15:30–16:00 UTC):
+
+| Source | ZEC | BNB | SOL | Status | Vote |
+| --- | --- | --- | --- | --- | --- |
+| CoinGecko | -3.1023% | -0.6673% | -1.5930% | 200 | BNB |
+| Bitget | -2.8179% | -0.8702% | -1.7007% | 200 | BNB |
+| Binance | -2.8353% | -0.8465% | -1.6931% | 200 | BNB |
+
+Consensus BNB, 3 of 3. The venues disagree on the exact prices, which is the point of
+never averaging them, and still agree on the ordering.
+
 ### 2.2 Transport rules
 
 Applied identically to all nine requests:
@@ -88,7 +118,7 @@ Applied identically to all nine requests:
 | Method | `GET` |
 | Accept header | `application/json` |
 | Accepted status | `200` only |
-| Max response body | 65,536 bytes |
+| Max response body | 262,144 bytes |
 | JSON parsing | `parse_float=str`, `parse_int=str` — numbers keep their exact source text |
 | Interval | `30m`, requested explicitly where the API supports it |
 | Candle count | exactly 1 where the API supports `limit` |
@@ -102,10 +132,10 @@ single settle call.
 
 ### 3.1 CoinGecko
 
-Response shape:
+Response shape, a full day of samples:
 
 ```json
-{ "prices": [[1757577600000, 231.44], [1757577660000, 231.51]] }
+{ "prices": [[1789140600000, 103.33], [1789140900000, 103.10], ...] }
 ```
 
 Rules:

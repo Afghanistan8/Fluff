@@ -62,18 +62,26 @@ def aligned_start(after: int) -> int:
 
 
 def coingecko_body(start: int, open_price: str, close_price: str) -> str:
-    """Raw JSON with unquoted numbers, the way CoinGecko answers.
+    """A days=1 market chart, the way CoinGecko actually answers.
 
-    The extra samples force the parser to select by timestamp rather than by array
-    position: one sits mid-window, one sits exactly on `end` and must be excluded.
+    The payload spans a whole day at 5-minute granularity, so most of it sits outside
+    the window. Samples before the start, on the end boundary and after it are all
+    included here: the parser has to select purely by timestamp.
     """
     samples = [
+        # Well before the window, and priced to flip the winner if wrongly included.
+        (start * 1000 - 7_200_000, "1.0"),
+        (start * 1000 - 300_000, "999.0"),
+        # Inside the window.
         (start * 1000, open_price),
-        (start * 1000 + 60_000, "999.0"),
-        ((start + WINDOW) * 1000 - 1000, close_price),
+        (start * 1000 + 300_000, "999.0"),
+        ((start + WINDOW) * 1000 - 300_000, close_price),
+        # The sample on `end` is outside a half-open window, and after it.
         ((start + WINDOW) * 1000, "1.0"),
+        ((start + WINDOW) * 1000 + 300_000, "1.0"),
     ]
-    return '{"prices":[' + ",".join(f"[{stamp},{price}]" for stamp, price in samples) + "]}"
+    rows = ",".join(f"[{stamp},{price}]" for stamp, price in samples)
+    return '{"prices":[' + rows + "]}"
 
 
 def bitget_body(start: int, open_price: str, close_price: str) -> str:

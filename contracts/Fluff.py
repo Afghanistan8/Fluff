@@ -61,7 +61,7 @@ PRICE_DECIMALS = 18
 RETURN_SCALE = 10**6
 
 PAGE_LIMIT = 50
-MAX_RESPONSE_BYTES = 65536
+MAX_RESPONSE_BYTES = 262144
 MAX_EXPONENT = 30
 PROTOCOL_FEE_BPS = 0
 
@@ -113,10 +113,11 @@ SETTLE_RESULT_RETRY = "NO_CONSENSUS_RETRY"
 
 # Locked endpoints. Validators never pick alternates and nothing here falls back to HTML.
 COINGECKO_IDS = {"ZEC": "zcash", "BNB": "binancecoin", "SOL": "solana"}
-COINGECKO_URL = (
-    "https://api.coingecko.com/api/v3/coins/{coin}/market_chart/range"
-    "?vs_currency=usd&from={start}&to={end}"
-)
+# The /market_chart/range path now answers 401 without a paid key (error_code 10012),
+# which made CoinGecko cast no vote on every settle. The days=1 chart is public, covers
+# the last 24 hours at 5-minute granularity, and is therefore always wide enough for a
+# window whose settlement deadline is three hours after it ends.
+COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/{coin}/market_chart?vs_currency=usd&days=1"
 BITGET_URL = (
     "https://api.bitget.com/api/v3/market/candles"
     "?category=USDT-FUTURES&symbol={asset}USDT&interval=30m&type=INDEX"
@@ -299,7 +300,8 @@ def _single_row_candle(rows: typing.Any, start_ms: int) -> tuple[int, int]:
 
 
 def _coingecko_candle(asset: str, start: int, end: int) -> tuple[int, int]:
-    payload = _http_json(COINGECKO_URL.format(coin=COINGECKO_IDS[asset], start=start, end=end))
+    # The payload spans a whole day; only samples inside [start, end) are considered.
+    payload = _http_json(COINGECKO_URL.format(coin=COINGECKO_IDS[asset]))
     if not isinstance(payload, dict):
         raise _SourceFailure("shape")
     samples = payload.get("prices")
