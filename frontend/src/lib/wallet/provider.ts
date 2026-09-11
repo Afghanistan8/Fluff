@@ -147,21 +147,55 @@ const NETWORK_PARAMS = {
   ...(EXPLORER_URL ? { blockExplorerUrls: [EXPLORER_URL] } : {}),
 }
 
-/** Switch to the configured network, adding it to the wallet if it is not there yet. */
+/**
+ * Does this error mean "I have never heard of that chain" rather than a real failure?
+ *
+ * 4902 is the specified code, but wallets are inconsistent: some return the generic
+ * internal error instead, and some only say so in the message. Treating any of them as
+ * "not added" is safe, because the next step is to add the chain and switch again.
+ */
+function isUnknownChain(error: unknown): boolean {
+  const code = (error as { code?: number }).code
+  if (code === 4902 || code === -32603) return true
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return /unrecognized chain|chain .*not (found|added|configured)|add .*chain/i.test(message)
+}
+
+export class WrongNetworkError extends Error {
+  constructor(actual: number | null) {
+    super(
+      `Wallet is not on ${CHAIN_NAME} (${CHAIN_ID})` +
+        (actual === null ? '.' : `, it is on chain ${actual}.`),
+    )
+    this.name = 'WrongNetworkError'
+  }
+}
+
+/**
+ * Put the wallet on the configured network, adding it first if it does not know it.
+ * Throws `WrongNetworkError` if the wallet still reports a different chain afterwards,
+ * rather than letting the app believe a switch that never happened.
+ */
 export async function ensureNetwork(provider: Eip1193Provider): Promise<void> {
   const current = await readChainId(provider)
   if (current === CHAIN_ID) return
+
   try {
     await provider.request({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: CHAIN_ID_HEX }],
     })
   } catch (error) {
-    // 4902 is the wallet saying it has never heard of this chain.
-    const code = (error as { code?: number }).code
-    if (code !== 4902) throw error
+    if (!isUnknownChain(error)) throw error
     await provider.request({ method: 'wallet_addEthereumChain', params: [NETWORK_PARAMS] })
+    // Adding does not always switch, so ask again and ignore a redundant-switch error.
+    await provider
+      .request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] })
+      .catch(() => undefined)
   }
+
+  const settled = await readChainId(provider)
+  if (settled !== CHAIN_ID) throw new WrongNetworkError(settled)
 }
 
 export async function readBalance(

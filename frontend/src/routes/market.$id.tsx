@@ -7,12 +7,12 @@ import { EvidencePanel } from '~/components/evidence-panel'
 import { PhaseBadge } from '~/components/market-card'
 import { PoolBar, PoolLegend } from '~/components/pool-bar'
 import { ReturnPreviewChart } from '~/components/return-preview-chart'
-import { ScreenState, RowSkeleton } from '~/components/states'
+import { FaucetHint, ScreenState, RowSkeleton } from '~/components/states'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardBody, CardHeader, CardTitle } from '~/components/ui/card'
 import { shortAddress } from '~/lib/chain/client'
-import { claimCall, claimRefundCall, settleMarketCall } from '~/lib/chain/contract'
+import { claimCall, claimRefundCall, getMarket, settleMarketCall } from '~/lib/chain/contract'
 import { useEvidence, useMarket, usePosition, useRefreshAfterWrite } from '~/lib/chain/queries'
 import type { Market, Position } from '~/lib/chain/types'
 import { PHASE_COUNTDOWN_LABELS, derivePhase } from '~/lib/market/phase'
@@ -79,9 +79,18 @@ function YourPosition({
 
   async function pull(kind: 'CLAIM' | 'REFUND'): Promise<void> {
     const call = kind === 'CLAIM' ? claimCall(market.id) : claimRefundCall(market.id)
-    await wallet.send(call, kind === 'CLAIM' ? 'Claim winnings' : 'Claim refund')
-    await refresh(market.id, wallet.address)
-    onAction()
+    try {
+      await wallet.send(call, kind === 'CLAIM' ? 'Claim winnings' : 'Claim refund', {
+        // The pull either happened or it did not; the chain knows which.
+        verify: async () => {
+          const latest = await getMarket(market.id)
+          return latest.paidOut > market.paidOut
+        },
+      })
+    } finally {
+      await refresh(market.id, wallet.address)
+      onAction()
+    }
   }
 
   return (
@@ -140,9 +149,22 @@ function SettleCard({ market, onSettled }: { market: Market; onSettled: () => vo
   const refresh = useRefreshAfterWrite()
 
   async function settle(): Promise<void> {
-    await wallet.send(settleMarketCall(market.id), 'Settle this window')
-    await refresh(market.id, wallet.address)
-    onSettled()
+    try {
+      await wallet.send(settleMarketCall(market.id), 'Settle this window', {
+        // Nine live venue reads inside equivalence blocks, then consensus.
+        waitSeconds: 600,
+        // If the receipt never arrives, ask the chain whether the market resolved
+        // anyway rather than calling a slow settlement a failure.
+        verify: async () => {
+          const latest = await getMarket(market.id)
+          return latest.state !== 'OPEN' || latest.settleAttempts > market.settleAttempts
+        },
+      })
+    } finally {
+      // Refetch either way: a timed-out settle may still have landed.
+      await refresh(market.id, wallet.address)
+      onSettled()
+    }
   }
 
   return (
@@ -171,6 +193,7 @@ function SettleCard({ market, onSettled }: { market: Market; onSettled: () => vo
             Connect wallet to settle
           </Button>
         )}
+        <FaucetHint />
       </CardBody>
     </Card>
   )

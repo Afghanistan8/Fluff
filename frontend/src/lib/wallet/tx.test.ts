@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   cleanReason,
   isRetryableError,
+  isWaitTimeout,
+  TxTimeoutError,
   readableError,
   receiptFailureReason,
   receiptSucceeded,
@@ -269,5 +271,73 @@ describe('isRetryableError', () => {
     expect(isRetryableError(new Error('User rejected the request'))).toBe(false)
     expect(isRetryableError(new Error('unknown market'))).toBe(false)
     expect(isRetryableError(new Error('market: expected an object, got null'))).toBe(false)
+  })
+})
+
+describe('timeout is not failure', () => {
+  const slowReceipt = async (): Promise<never> => {
+    throw new Error('Timed out while waiting for transaction with hash "0xabc" to be confirmed.')
+  }
+
+  it('classifies a receipt timeout separately from a refusal', () => {
+    expect(isWaitTimeout(new Error('Timed out while waiting for transaction'))).toBe(true)
+    expect(isWaitTimeout(new Error('WaitForTransactionReceiptTimeoutError'))).toBe(true)
+    expect(isWaitTimeout(new Error('execution reverted: betting closed'))).toBe(false)
+  })
+
+  it('reports success when the effect landed despite no receipt', async () => {
+    const phases: TxState['phase'][] = []
+    await runTransaction({
+      label: 'Settle this window',
+      submit: async () => '0xabc',
+      confirm: slowReceipt,
+      verify: async () => true,
+      onPhase: (state) => phases.push(state.phase),
+    })
+    expect(phases).toEqual(['submitting', 'confirming', 'success'])
+  })
+
+  it('reports a timeout, not a failure, when the effect has not landed yet', async () => {
+    const phases: TxState['phase'][] = []
+    await expect(
+      runTransaction({
+        label: 'Settle this window',
+        submit: async () => '0xabc',
+        confirm: slowReceipt,
+        verify: async () => false,
+        onPhase: (state) => phases.push(state.phase),
+      }),
+    ).rejects.toBeInstanceOf(TxTimeoutError)
+    expect(phases).toEqual(['submitting', 'confirming', 'timeout'])
+  })
+
+  it('keeps the hash on a timeout so the transaction can still be followed', async () => {
+    const states: TxState[] = []
+    await expect(
+      runTransaction({
+        label: 'Settle',
+        submit: async () => '0xdeadbeef',
+        confirm: slowReceipt,
+        onPhase: (state) => states.push(state),
+      }),
+    ).rejects.toBeInstanceOf(TxTimeoutError)
+    expect(states.at(-1)?.phase).toBe('timeout')
+    expect(states.at(-1)?.hash).toBe('0xdeadbeef')
+  })
+
+  it('still reports a real revert as a failure', async () => {
+    const phases: TxState['phase'][] = []
+    await expect(
+      runTransaction({
+        label: 'Bet on SOL',
+        submit: async () => '0xabc',
+        confirm: async () => {
+          throw new Error('execution reverted: betting closed for this window')
+        },
+        verify: async () => true,
+        onPhase: (state) => phases.push(state.phase),
+      }),
+    ).rejects.toThrow('Betting closed for this window.')
+    expect(phases).toEqual(['submitting', 'confirming', 'failure'])
   })
 })

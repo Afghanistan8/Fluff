@@ -12,7 +12,10 @@ import { Wordmark } from '~/components/brand'
 import { TxDialog } from '~/components/tx-dialog'
 import { WalletPicker } from '~/components/wallet-picker'
 import { NetworkChip, WalletButton } from '~/components/wallet-button'
+import { explorerAddressUrl, shortAddress } from '~/lib/chain/client'
+import { CHAIN_ID, CHAIN_LABEL } from '~/lib/chain/network'
 import { useActivityCount } from '~/lib/chain/queries'
+import { env } from '~/lib/env'
 import { WalletProvider, useWallet } from '~/lib/wallet/WalletProvider'
 import appCss from '~/styles.css?url'
 
@@ -107,6 +110,25 @@ function SiteFooter(): ReactNode {
         <p>Fluff · permissionless 30-minute token dominance on GenLayer.</p>
         <p>
           Zero protocol fee. Settlement reads CoinGecko, Bitget and Binance independently.
+        </p>
+        {/* Printed so a build with a missing contract address is visible on the site
+            itself, rather than only as an empty market list. */}
+        <p className="tnum">
+          {env.isConfigured ? (
+            <>
+              {CHAIN_LABEL} ({CHAIN_ID}) ·{' '}
+              <a
+                href={explorerAddressUrl(env.contractAddress) ?? undefined}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-apricot"
+              >
+                {shortAddress(env.contractAddress)}
+              </a>
+            </>
+          ) : (
+            <span className="text-alarm">No contract address in this build</span>
+          )}
         </p>
       </div>
     </footer>

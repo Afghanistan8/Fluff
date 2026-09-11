@@ -4,7 +4,7 @@ import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardBody, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
-import { placeBetCall } from '~/lib/chain/contract'
+import { getMarket, placeBetCall } from '~/lib/chain/contract'
 import { useRefreshAfterWrite } from '~/lib/chain/queries'
 import { TOKENS, type Market, type Position, type TokenSymbol } from '~/lib/chain/types'
 import {
@@ -17,6 +17,7 @@ import {
   previewMultiple,
   previewPayoutForNewBet,
 } from '~/lib/market/payout'
+import { FaucetHint } from '~/components/states'
 import { tokenStyle } from '~/lib/tokens'
 import { cn } from '~/lib/utils'
 import { useWallet } from '~/lib/wallet/WalletProvider'
@@ -110,9 +111,12 @@ export function BetPanel({
       return
     }
     try {
+      const poolBefore = market.totalPool
       await wallet.send(
         placeBetCall(market.id, activeToken, stake),
         lockedToken ? `Add ${formatGen(stake, 2)} GEN to ${activeToken}` : `Bet on ${activeToken}`,
+        // A stake that landed shows up as a larger pool, even if the receipt was slow.
+        { verify: async () => (await getMarket(market.id)).totalPool > poolBefore },
       )
       setAmountText('')
       await refresh(market.id, wallet.address)
@@ -228,6 +232,8 @@ export function BetPanel({
             {lockedToken ? `Add to ${lockedToken}` : activeToken ? `Bet on ${activeToken}` : 'Pick a token'}
           </Button>
         )}
+
+        <FaucetHint />
 
         <p className="text-xs leading-relaxed text-cream-faint">
           Betting closes the moment the window starts. Stakes cannot be cancelled, switched or

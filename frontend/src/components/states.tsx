@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { Button } from '~/components/ui/button'
 import { Card, CardBody } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
+import { CHAIN_ID, CHAIN_LABEL, FAUCET_URL, RPC_URL } from '~/lib/chain/network'
 import { env } from '~/lib/env'
 import { useWallet } from '~/lib/wallet/WalletProvider'
 import { cn } from '~/lib/utils'
@@ -32,6 +33,13 @@ export function EmptyState({
   )
 }
 
+/**
+ * A failed read names what was queried.
+ *
+ * A wrong or empty contract address, a node that is down and a schema mismatch all
+ * surface here, and they are indistinguishable without the address and endpoint, so
+ * both are shown rather than a bare apology.
+ */
 export function ErrorState({
   title = 'That read did not come back',
   error,
@@ -47,6 +55,18 @@ export function ErrorState({
       <CardBody className="flex flex-col items-start gap-3 py-10">
         <p className="text-base text-cream">{title}</p>
         <p className="text-sm leading-relaxed text-cream-dim">{message}</p>
+        <dl className="mt-1 space-y-1 text-xs text-cream-faint">
+          <div className="flex gap-2">
+            <dt>Contract</dt>
+            <dd className="tnum text-cream-dim">{env.contractAddress}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt>Network</dt>
+            <dd className="text-cream-dim">
+              {CHAIN_LABEL} ({CHAIN_ID}) · {RPC_URL}
+            </dd>
+          </div>
+        </dl>
         {onRetry ? (
           <Button variant="outline" size="sm" onClick={onRetry}>
             Try again
@@ -54,6 +74,25 @@ export function ErrorState({
         ) : null}
       </CardBody>
     </Card>
+  )
+}
+
+/** Where a visitor gets test GEN, shown anywhere a write is about to be needed. */
+export function FaucetHint({ className }: { className?: string }): ReactNode {
+  return (
+    <p className={cn('text-xs leading-relaxed text-cream-faint', className)}>
+      Need GEN?{' '}
+      <a
+        href={FAUCET_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="text-apricot hover:underline"
+      >
+        Get test GEN from the Studio faucet
+      </a>
+      . Open the Studio, use its faucet button for your address, then come back and
+      refresh.
+    </p>
   )
 }
 
@@ -118,9 +157,12 @@ export function ConnectPrompt({ body }: { body: string }): ReactNode {
       }
       action={
         wallet.hasWallet ? (
-          <Button onClick={() => void wallet.connect()} disabled={wallet.connecting}>
-            {wallet.connecting ? 'Connecting…' : 'Connect wallet'}
-          </Button>
+          <div className="flex flex-col items-center gap-3">
+            <Button onClick={() => void wallet.connect()} disabled={wallet.connecting}>
+              {wallet.connecting ? 'Connecting…' : 'Connect wallet'}
+            </Button>
+            <FaucetHint className="max-w-sm text-center" />
+          </div>
         ) : (
           <Button variant="outline" asChild>
             <a href="https://docs.genlayer.com" target="_blank" rel="noreferrer">

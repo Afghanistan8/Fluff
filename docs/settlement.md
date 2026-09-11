@@ -39,7 +39,7 @@ displayed, never for the outcome.
 
 | Vote order | Source id | Venue | Reference series |
 | --- | --- | --- | --- |
-| 1 | `COINGECKO` | CoinGecko | USD market chart range |
+| 1 | `COINGECKO` | CoinGecko | USD market chart, last 24h |
 | 2 | `BITGET` | Bitget | USDT-M futures index candle, 30m |
 | 3 | `BINANCE` | Binance | Spot USDT kline, 30m |
 
@@ -192,7 +192,7 @@ that two honest validators describe the same failure with the same word.
 | Code | Meaning |
 | --- | --- |
 | `http` | non-200 status, or transport failure |
-| `size` | body exceeded the 65,536-byte cap |
+| `size` | body exceeded the 262,144-byte cap |
 | `json` | body was not valid JSON |
 | `shape` | JSON did not match the documented shape |
 | `code` | venue returned a business error code |

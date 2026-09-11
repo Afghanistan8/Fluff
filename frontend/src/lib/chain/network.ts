@@ -23,5 +23,8 @@ export const RPC_URL = 'https://studio.genlayer.com/api'
 
 export const NATIVE_CURRENCY = { name: 'GEN', symbol: 'GEN', decimals: 18 } as const
 
-/** The Studio network has no public explorer, so hashes render as plain text. */
-export const EXPLORER_URL: string | null = null
+export const EXPLORER_URL: string | null = 'https://explorer-studio.genlayer.com'
+
+/** Where a visitor gets test GEN. The Studio faucet is the only source on this network. */
+export const FAUCET_URL = 'https://studio.genlayer.com'
+

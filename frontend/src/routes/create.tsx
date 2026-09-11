@@ -2,11 +2,11 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMemo, useState, type ReactNode } from 'react'
 
 import { useChainClock } from '~/components/countdown'
-import { ScreenState, RowSkeleton } from '~/components/states'
+import { FaucetHint, ScreenState, RowSkeleton } from '~/components/states'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardBody, CardHeader, CardTitle } from '~/components/ui/card'
-import { createMarketCall } from '~/lib/chain/contract'
+import { createMarketCall, getMarketByCategoryStart } from '~/lib/chain/contract'
 import { useConfig, useRefreshAfterWrite, useSlotAvailability } from '~/lib/chain/queries'
 import { CATEGORY_ID, TOKENS } from '~/lib/chain/types'
 import { formatWindowDate, formatWindowTimes, sameWallDay, upcomingSlots } from '~/lib/market/time'
@@ -38,7 +38,10 @@ function CreatePage(): ReactNode {
     if (selected === null) return
     setError(null)
     try {
-      await wallet.send(createMarketCall(CATEGORY_ID, selected), 'Open this window')
+      await wallet.send(createMarketCall(CATEGORY_ID, selected), 'Open this window', {
+        // The window either exists now or it does not.
+        verify: async () => (await getMarketByCategoryStart(CATEGORY_ID, selected)).exists,
+      })
       await refresh(null, wallet.address)
       const created = await availability.refetch()
       const marketId = created.data?.[selected]?.marketId
@@ -168,6 +171,8 @@ function CreatePage(): ReactNode {
             Betting stays open right up to the start of the window and closes the moment it
             begins. Once the thirty minutes are over, anyone can trigger settlement.
           </p>
+
+          <FaucetHint />
 
           {error ? <p className="text-sm text-alarm">{error}</p> : null}
 

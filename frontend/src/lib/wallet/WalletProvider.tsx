@@ -49,8 +49,19 @@ export interface WalletContextValue {
   disconnect: () => void
   switchNetwork: () => Promise<void>
   refreshBalance: () => Promise<void>
-  send: (call: WriteCall, label: string) => Promise<void>
+  send: (call: WriteCall, label: string, options?: SendOptions) => Promise<void>
   dismissTx: () => void
+}
+
+export interface SendOptions {
+  /**
+   * How long to wait for the receipt. `settle_market` reads nine live venue URLs
+   * inside equivalence blocks before consensus even starts, so the default two
+   * minutes reported a false failure while the transaction was still running.
+   */
+  waitSeconds?: number
+  /** Asks the chain whether the effect landed, used when the receipt never arrives. */
+  verify?: () => Promise<boolean>
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null)
@@ -60,6 +71,9 @@ export function useWallet(): WalletContextValue {
   if (!value) throw new Error('useWallet must be used inside <WalletProvider>')
   return value
 }
+
+/** Ordinary writes settle quickly; `settle_market` is given far longer at the call site. */
+const DEFAULT_WAIT_SECONDS = 180
 
 export function WalletProvider({ children }: { children: ReactNode }): ReactNode {
   const [wallets, setWallets] = useState<WalletOption[]>([])
@@ -122,7 +136,9 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
   }, [provider])
 
   const refreshBalance = useCallback(async () => {
-    if (!provider || !address) {
+    // A balance read on the wrong chain returns that chain's GEN, which would be a
+    // misleading number to show, so it is not read at all until the network is right.
+    if (!provider || !address || chainId !== CHAIN_ID) {
       setBalance(0n)
       return
     }
@@ -131,11 +147,11 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
     } catch {
       setBalance(0n)
     }
-  }, [provider, address])
+  }, [provider, address, chainId])
 
   useEffect(() => {
     void refreshBalance()
-  }, [refreshBalance, chainId])
+  }, [refreshBalance])
 
   /** Bind to one wallet, ask for its accounts, then put it on the right network. */
   const choose = useCallback(async (wallet: WalletOption) => {
@@ -219,7 +235,7 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
   }, [provider, address])
 
   const send = useCallback(
-    async (call: WriteCall, label: string) => {
+    async (call: WriteCall, label: string, options: SendOptions = {}) => {
       if (!client || !address) throw new Error('Connect a wallet first.')
       if (!env.isConfigured) throw new Error('No Fluff contract address is configured.')
       if (chainId !== CHAIN_ID) await switchNetwork()
@@ -236,13 +252,17 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
           })
           return String(hash)
         },
-        confirm: (hash) =>
-          client.waitForTransactionReceipt({
+        verify: options.verify,
+        confirm: (hash) => {
+          const intervalMs = 3000
+          const waitSeconds = options.waitSeconds ?? DEFAULT_WAIT_SECONDS
+          return client.waitForTransactionReceipt({
             hash: hash as `0x${string}` & { length: 66 },
             status: 'ACCEPTED' as never,
-            retries: 60,
-            interval: 2000,
-          }),
+            retries: Math.ceil((waitSeconds * 1000) / intervalMs),
+            interval: intervalMs,
+          })
+        },
       })
       await refreshBalance()
     },

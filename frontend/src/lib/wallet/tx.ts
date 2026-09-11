@@ -6,7 +6,14 @@
  * can never show an optimistic result that the chain later refuses.
  */
 
-export type TxPhase = 'idle' | 'submitting' | 'confirming' | 'success' | 'failure'
+export type TxPhase =
+  | 'idle'
+  | 'submitting'
+  | 'confirming'
+  | 'success'
+  | 'failure'
+  /** Submitted and still running. Not a failure: the chain may still accept it. */
+  | 'timeout'
 
 export interface TxState {
   phase: TxPhase
@@ -21,9 +28,27 @@ export const IDLE_TX: TxState = { phase: 'idle', hash: null, error: null, label:
 export const TX_PHASE_COPY: Record<TxPhase, string> = {
   idle: '',
   submitting: 'Waiting for your wallet',
-  confirming: 'Confirming on chain',
+  confirming: 'Waiting for validators',
   success: 'Confirmed',
   failure: 'Did not go through',
+  timeout: 'Still running. Validators are taking longer than usual.',
+}
+
+/** Thrown when the receipt never arrived. The transaction may still be in flight. */
+export class TxTimeoutError extends Error {
+  readonly hash: string
+
+  constructor(hash: string) {
+    super('Timed out waiting for the receipt. The transaction may still be running.')
+    this.name = 'TxTimeoutError'
+    this.hash = hash
+  }
+}
+
+/** Did this failure mean "no receipt yet" rather than "the chain refused it"? */
+export function isWaitTimeout(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return /timed out|timeout|WaitForTransactionReceipt/i.test(message)
 }
 
 /**
@@ -114,6 +139,11 @@ export interface RunTxOptions {
   submit: () => Promise<string>
   confirm: (hash: string) => Promise<unknown>
   onPhase?: (state: TxState) => void
+  /**
+   * Asks the chain whether the intended effect actually landed. Used when the receipt
+   * never arrived, so a slow confirmation is not reported as a failure.
+   */
+  verify?: () => Promise<boolean>
 }
 
 /**
@@ -122,7 +152,7 @@ export interface RunTxOptions {
  * but reports an execution error.
  */
 export async function runTransaction(options: RunTxOptions): Promise<unknown> {
-  const { label, submit, confirm, onPhase } = options
+  const { label, submit, confirm, onPhase, verify } = options
   const report = (state: Omit<TxState, 'label'>): void => onPhase?.({ ...state, label })
 
   report({ phase: 'submitting', hash: null, error: null })
@@ -140,6 +170,16 @@ export async function runTransaction(options: RunTxOptions): Promise<unknown> {
   try {
     receipt = await confirm(hash)
   } catch (error) {
+    // A missing receipt is not a refusal. Ask the chain whether the effect landed
+    // before telling anyone the transaction failed.
+    if (isWaitTimeout(error)) {
+      if (verify && (await verify().catch(() => false))) {
+        report({ phase: 'success', hash, error: null })
+        return null
+      }
+      report({ phase: 'timeout', hash, error: null })
+      throw new TxTimeoutError(hash)
+    }
     const message = readableError(error)
     report({ phase: 'failure', hash, error: message })
     throw new Error(message)
