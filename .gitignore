@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# GenLayer
+artifacts/
+.env
+.env.local
+
+# Node / frontend
+node_modules/
+dist/
+.output/
+.vinxi/
+.tanstack/
+*.tsbuildinfo
+.vite/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.log

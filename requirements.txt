@@ -1,0 +1,9 @@
+# Fluff — contract toolchain
+#
+# The GenLayer SDK itself is not on PyPI: it ships inside the GenVM runner that
+# gltest downloads on first use. These are the tools around it.
+
+genlayer-test==0.29.2   # gltest + gltest.direct, the contract test runners
+genvm-linter==0.11.0    # genvm-lint: AST safety checks for intelligent contracts
+genlayer-py==0.16.3     # RPC client used by the integration suite
+pytest>=8.0

@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+/*
+  Fluff's whole palette. Ink field, warm off-white type, one accent: soft apricot.
+  The three token hues are earthy and equal in weight, so no token looks favoured
+  before the market resolves.
+*/
+@theme {
+  --color-ink: #0d0d0f;
+  --color-ink-raised: #141418;
+  --color-ink-high: #1b1b21;
+  --color-line: #26262d;
+  --color-line-bright: #35353e;
+
+  --color-cream: #f2ede4;
+  --color-cream-dim: #9b968c;
+  --color-cream-faint: #6a665f;
+
+  --color-apricot: #f0a868;
+  --color-apricot-deep: #cf8442;
+  --color-apricot-wash: #2a1f16;
+
+  --color-zec: #7e9aa6;
+  --color-bnb: #b08968;
+  --color-sol: #6f8f6a;
+
+  --color-alarm: #d97066;
+  --color-good: #7fa87a;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", monospace;
+
+  --radius-puff: 1.25rem;
+}
+
+html,
+body {
+  background-color: var(--color-ink);
+  color: var(--color-cream);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Numbers that sit in tables and countdowns must not jitter as they tick. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+::selection {
+  background-color: var(--color-apricot);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-apricot);
+  outline-offset: 2px;
+}
+
+/* A quiet haze behind the hero, so the top of the page has air without a gradient bar. */
+.haze {
+  background-image: radial-gradient(
+    60rem 26rem at 50% -8rem,
+    color-mix(in oklab, var(--color-apricot) 12%, transparent),
+    transparent 70%
+  );
+}
+
+@keyframes fluff-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.live-dot {
+  animation: fluff-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes fluff-shimmer {
+  from {
+    background-position: -12rem 0;
+  }
+  to {
+    background-position: 12rem 0;
+  }
+}
+
+.shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-ink-high) 0%,
+    var(--color-line) 50%,
+    var(--color-ink-high) 100%
+  );
+  background-size: 24rem 100%;
+  animation: fluff-shimmer 1.4s linear infinite;
+}
