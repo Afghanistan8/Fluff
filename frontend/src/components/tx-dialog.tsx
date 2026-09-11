@@ -46,14 +46,18 @@ export function TxDialog(): ReactNode {
         ) : null}
 
         {tx.hash ? (
-          <a
-            href={explorerTxUrl(tx.hash)}
-            target="_blank"
-            rel="noreferrer"
-            className="tnum mt-4 block truncate text-xs text-apricot hover:underline"
-          >
-            {tx.hash}
-          </a>
+          explorerTxUrl(tx.hash) ? (
+            <a
+              href={explorerTxUrl(tx.hash) ?? undefined}
+              target="_blank"
+              rel="noreferrer"
+              className="tnum mt-4 block truncate text-xs text-apricot hover:underline"
+            >
+              {tx.hash}
+            </a>
+          ) : (
+            <p className="tnum mt-4 truncate text-xs text-cream-faint">{tx.hash}</p>
+          )
         ) : null}
 
         {!pending ? (

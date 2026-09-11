@@ -9,6 +9,8 @@ function readString(key: string, fallback: string): string {
 
 const contractAddress = readString('VITE_FLUFF_CONTRACT_ADDRESS', ZERO_ADDRESS)
 const network = readString('VITE_GENLAYER_NETWORK', 'bradbury')
+// Informational. The selected network in networks.ts is authoritative for the
+// chain id, so the two can never disagree at runtime.
 const chainId = Number(readString('VITE_GENLAYER_CHAIN_ID', '4221'))
 
 export const env = {

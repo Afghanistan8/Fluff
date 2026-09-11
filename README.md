@@ -196,22 +196,48 @@ VITE_GENLAYER_NETWORK=bradbury
 VITE_GENLAYER_CHAIN_ID=4221
 ```
 
+`VITE_GENLAYER_NETWORK` accepts `bradbury` or `studionet` and selects the RPC endpoint
+and the chain id together. The chain id variable is informational.
+
 Until a real address is set, every screen says so plainly rather than showing invented
 data.
 
 ---
 
-## Network
+## Networks
 
-| | |
-| --- | --- |
-| Chain | GenLayer Bradbury Testnet |
-| Chain ID | 4221 |
-| RPC | `https://rpc-bradbury.genlayer.com` |
-| Native token | GEN, 1 GEN = 10^18 base units |
+Fluff behaves identically on either GenLayer network. The client picks one at build
+time, so moving a deployment is one environment variable plus the new address.
 
-To deploy, add a funded key under `networks.testnet_bradbury.accounts` in
-`gltest.config.yaml`, keep it out of version control, and deploy `contracts/Fluff.py`.
+| | Bradbury | Studio |
+| --- | --- | --- |
+| `VITE_GENLAYER_NETWORK` | `bradbury` | `studionet` |
+| Chain ID | 4221 | 61999 |
+| RPC | `https://rpc-bradbury.genlayer.com` | `https://studio.genlayer.com/api` |
+| Explorer | yes | none, hashes render as plain text |
+
+Native token is GEN on both, 1 GEN = 10^18 base units.
+
+To deploy with the GenLayer CLI, unlock the deployer account once and point the CLI at
+the network you want:
+
+```bash
+genlayer config set network=testnet-bradbury   # or studionet
+genlayer deploy --contract contracts/Fluff.py
+```
+
+`genlayer config set` does not validate the name, so a typo silently produces an
+unusable network. Confirm with `genlayer account show` before deploying.
+
+To deploy through `gltest` instead, add a funded key under
+`networks.testnet_bradbury.accounts` in `gltest.config.yaml` and keep it out of version
+control.
+
+### Line endings
+
+GenVM reads the contract's first line as a runner spec. A CRLF file ends that line with a
+stray carriage return, so the contract must stay LF on every platform. `.gitattributes`
+pins this; do not let an editor rewrite `contracts/Fluff.py` to CRLF.
 
 ---
 

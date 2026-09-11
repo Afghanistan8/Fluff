@@ -1,18 +1,18 @@
 /** genlayer-js client construction, for reads and for an injected wallet. */
 
 import { createClient } from 'genlayer-js'
-import { testnetBradbury } from 'genlayer-js/chains'
-import type { GenLayerChain } from 'genlayer-js/types'
 
 import { env } from '~/lib/env'
+import { resolveNetwork } from '~/lib/chain/networks'
 
 export type FluffClient = ReturnType<typeof createClient>
 
-export const chain: GenLayerChain = testnetBradbury
+export const network = resolveNetwork(env.network)
+export const chain = network.chain
 
-export const CHAIN_LABEL = 'Bradbury'
-export const CHAIN_ID = env.chainId
-export const CHAIN_ID_HEX = `0x${env.chainId.toString(16)}`
+export const CHAIN_LABEL = network.label
+export const CHAIN_ID = network.chainId
+export const CHAIN_ID_HEX = `0x${network.chainId.toString(16)}`
 
 /** Read-only client. Needs no wallet and no account. */
 export function createReadClient(): FluffClient {
@@ -36,14 +36,13 @@ export function sharedReadClient(): FluffClient {
   return readClient
 }
 
-export const EXPLORER_URL = 'https://explorer-bradbury.genlayer.com'
-
-export function explorerTxUrl(hash: string): string {
-  return `${EXPLORER_URL}/tx/${hash}`
+/** Null on networks with no public explorer, so callers render plain text instead. */
+export function explorerTxUrl(hash: string): string | null {
+  return network.explorerUrl ? `${network.explorerUrl}/tx/${hash}` : null
 }
 
-export function explorerAddressUrl(address: string): string {
-  return `${EXPLORER_URL}/address/${address}`
+export function explorerAddressUrl(address: string): string | null {
+  return network.explorerUrl ? `${network.explorerUrl}/address/${address}` : null
 }
 
 export function shortAddress(address: string): string {

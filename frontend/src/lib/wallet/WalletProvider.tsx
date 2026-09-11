@@ -14,7 +14,7 @@ import { CHAIN_ID, createWalletClient, type FluffClient } from '~/lib/chain/clie
 import type { WriteCall } from '~/lib/chain/contract'
 import { env } from '~/lib/env'
 import {
-  ensureBradbury,
+  ensureNetwork,
   getInjectedProvider,
   readAccounts,
   readBalance,
@@ -123,7 +123,7 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
       const accounts = await requestAccounts(injected)
       setProvider(injected)
       setAddress(accounts[0] ?? null)
-      await ensureBradbury(injected)
+      await ensureNetwork(injected)
       setChainId(await readChainId(injected))
     } catch (caught) {
       setError(readableError(caught))
@@ -144,7 +144,7 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
     if (!injected) return
     setError(null)
     try {
-      await ensureBradbury(injected)
+      await ensureNetwork(injected)
       setChainId(await readChainId(injected))
     } catch (caught) {
       setError(readableError(caught))

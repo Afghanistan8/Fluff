@@ -1,6 +1,6 @@
-/** Injected wallet detection and Bradbury network switching. */
+/** Injected wallet detection and network switching. */
 
-import { CHAIN_ID, CHAIN_ID_HEX, CHAIN_LABEL } from '~/lib/chain/client'
+import { CHAIN_ID, CHAIN_ID_HEX, network } from '~/lib/chain/client'
 
 export interface Eip1193Provider {
   request: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>
@@ -42,16 +42,16 @@ export async function readChainId(provider: Eip1193Provider): Promise<number | n
   return null
 }
 
-const BRADBURY_PARAMS = {
+const NETWORK_PARAMS = {
   chainId: CHAIN_ID_HEX,
-  chainName: `GenLayer ${CHAIN_LABEL} Testnet`,
+  chainName: network.chainName,
   nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 },
-  rpcUrls: ['https://rpc-bradbury.genlayer.com'],
-  blockExplorerUrls: ['https://explorer-bradbury.genlayer.com'],
+  rpcUrls: [network.rpcUrl],
+  ...(network.explorerUrl ? { blockExplorerUrls: [network.explorerUrl] } : {}),
 }
 
-/** Switch to Bradbury, adding it to the wallet first if it is not there yet. */
-export async function ensureBradbury(provider: Eip1193Provider): Promise<void> {
+/** Switch to the configured network, adding it to the wallet if it is not there yet. */
+export async function ensureNetwork(provider: Eip1193Provider): Promise<void> {
   const current = await readChainId(provider)
   if (current === CHAIN_ID) return
   try {
@@ -63,7 +63,7 @@ export async function ensureBradbury(provider: Eip1193Provider): Promise<void> {
     // 4902 is the wallet saying it has never heard of this chain.
     const code = (error as { code?: number }).code
     if (code !== 4902) throw error
-    await provider.request({ method: 'wallet_addEthereumChain', params: [BRADBURY_PARAMS] })
+    await provider.request({ method: 'wallet_addEthereumChain', params: [NETWORK_PARAMS] })
   }
 }
 
