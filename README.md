@@ -204,19 +204,44 @@ data.
 
 ---
 
+## Deployment
+
+Fluff is live on the GenLayer Studio dev network:
+
+```
+0x230039c2B8aB8d421f7b0B4ccA10b260403CD49E
+```
+
 ## Networks
 
-Fluff behaves identically on either GenLayer network. The client picks one at build
+Fluff behaves identically on every GenLayer network. The client picks one at build
 time, so moving a deployment is one environment variable plus the new address.
 
-| | Bradbury | Studio |
-| --- | --- | --- |
-| `VITE_GENLAYER_NETWORK` | `bradbury` | `studionet` |
-| Chain ID | 4221 | 61999 |
-| RPC | `https://rpc-bradbury.genlayer.com` | `https://studio.genlayer.com/api` |
-| Explorer | yes | none, hashes render as plain text |
+| | Bradbury | Studio | Studio dev |
+| --- | --- | --- | --- |
+| `VITE_GENLAYER_NETWORK` | `bradbury` | `studionet` | `studiodev` |
+| Chain ID | 4221 | 61999 | 61997 |
+| RPC | `rpc-bradbury.genlayer.com` | `studio.genlayer.com/api` | `studio-dev.genlayer.com/api` |
+| Explorer | yes | none | yes |
 
-Native token is GEN on both, 1 GEN = 10^18 base units.
+Native token is GEN on all three, 1 GEN = 10^18 base units.
+
+### Which SDK a network runs
+
+This matters more than it looks. The contract is executed by the GenVM the network
+ships, and that SDK's surface changed between the 0.2 and 0.3 releases: 0.2 nests the
+API under `genlayer.gl` and exports `allow_storage`, while 0.3 lifts it to the package
+root and renames it `allow`. A contract written for the wrong one is rejected at load
+time as `invalid_contract`, which the testnet RPCs report as an opaque code with no
+traceback.
+
+`contracts/Fluff.py` resolves both at import, so one file works either way. The studio
+endpoints return real Python tracebacks and will compile a contract for free, which is
+what `tests/direct/test_live_compile.py` uses to catch this class of drift:
+
+```bash
+pytest tests/direct/test_live_compile.py -q
+```
 
 To deploy with the GenLayer CLI, unlock the deployer account once and point the CLI at
 the network you want:
