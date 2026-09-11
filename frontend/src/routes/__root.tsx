@@ -10,6 +10,7 @@ import { useState, type ReactNode } from 'react'
 
 import { Wordmark } from '~/components/brand'
 import { TxDialog } from '~/components/tx-dialog'
+import { WalletPicker } from '~/components/wallet-picker'
 import { NetworkChip, WalletButton } from '~/components/wallet-button'
 import { useActivityCount } from '~/lib/chain/queries'
 import { WalletProvider, useWallet } from '~/lib/wallet/WalletProvider'
@@ -142,6 +143,7 @@ function RootComponent(): ReactNode {
               </main>
               <SiteFooter />
             </div>
+            <WalletPicker />
             <TxDialog />
           </WalletProvider>
         </QueryClientProvider>

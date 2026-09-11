@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -15,18 +16,28 @@ import type { WriteCall } from '~/lib/chain/contract'
 import { env } from '~/lib/env'
 import {
   ensureNetwork,
-  getInjectedProvider,
   readAccounts,
   readBalance,
   readChainId,
   requestAccounts,
+  requestWalletAnnouncements,
+  subscribeToWallets,
   type Eip1193Provider,
+  type WalletOption,
 } from '~/lib/wallet/provider'
 import { IDLE_TX, runTransaction, readableError, type TxState } from '~/lib/wallet/tx'
 
 export interface WalletContextValue {
-  /** False when no injected wallet is present at all. */
+  /** False when no wallet is present at all. */
   hasWallet: boolean
+  /** Every wallet the browser announced, in announcement order. */
+  wallets: WalletOption[]
+  /** The wallet currently connected, when one is. */
+  activeWallet: WalletOption | null
+  /** Open when more than one wallet is installed and the user must choose. */
+  picking: boolean
+  choose: (wallet: WalletOption) => Promise<void>
+  cancelPicking: () => void
   address: `0x${string}` | null
   chainId: number | null
   onCorrectNetwork: boolean
@@ -51,6 +62,9 @@ export function useWallet(): WalletContextValue {
 }
 
 export function WalletProvider({ children }: { children: ReactNode }): ReactNode {
+  const [wallets, setWallets] = useState<WalletOption[]>([])
+  const [activeWallet, setActiveWallet] = useState<WalletOption | null>(null)
+  const [picking, setPicking] = useState(false)
   const [provider, setProvider] = useState<Eip1193Provider | null>(null)
   const [address, setAddress] = useState<`0x${string}` | null>(null)
   const [chainId, setChainId] = useState<number | null>(null)
@@ -59,17 +73,29 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
   const [error, setError] = useState<string | null>(null)
   const [tx, setTx] = useState<TxState>(IDLE_TX)
 
-  // Detection runs after mount so the server render and the first client render agree.
-  useEffect(() => {
-    const injected = getInjectedProvider()
-    setProvider(injected)
-    if (!injected) return
+  // Discovery runs after mount so the server render and the first client render agree.
+  // The ref mirrors the list so `connect` can read it straight after a re-announcement,
+  // without waiting for a state update to land.
+  const walletsRef = useRef<WalletOption[]>([])
+  useEffect(
+    () =>
+      subscribeToWallets((found) => {
+        walletsRef.current = found
+        setWallets(found)
+      }),
+    [],
+  )
 
+  // Bind to a wallet: listen for its account and chain changes, and adopt any session
+  // it already has so a reload does not look like a disconnect.
+  useEffect(() => {
+    if (!provider) return
     let cancelled = false
+
     void (async () => {
       const [accounts, currentChain] = await Promise.all([
-        readAccounts(injected).catch(() => []),
-        readChainId(injected).catch(() => null),
+        readAccounts(provider).catch(() => []),
+        readChainId(provider).catch(() => null),
       ])
       if (cancelled) return
       setAddress(accounts[0] ?? null)
@@ -86,14 +112,14 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
       setChainId(typeof raw === 'string' ? Number.parseInt(raw, 16) : null)
     }
 
-    injected.on?.('accountsChanged', onAccountsChanged)
-    injected.on?.('chainChanged', onChainChanged)
+    provider.on?.('accountsChanged', onAccountsChanged)
+    provider.on?.('chainChanged', onChainChanged)
     return () => {
       cancelled = true
-      injected.removeListener?.('accountsChanged', onAccountsChanged)
-      injected.removeListener?.('chainChanged', onChainChanged)
+      provider.removeListener?.('accountsChanged', onAccountsChanged)
+      provider.removeListener?.('chainChanged', onChainChanged)
     }
-  }, [])
+  }, [provider])
 
   const refreshBalance = useCallback(async () => {
     if (!provider || !address) {
@@ -111,45 +137,81 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
     void refreshBalance()
   }, [refreshBalance, chainId])
 
-  const connect = useCallback(async () => {
-    const injected = provider ?? getInjectedProvider()
-    if (!injected) {
-      setError('No browser wallet detected. Install one to place a bet.')
-      return
-    }
+  /** Bind to one wallet, ask for its accounts, then put it on the right network. */
+  const choose = useCallback(async (wallet: WalletOption) => {
     setConnecting(true)
     setError(null)
+    setPicking(false)
     try {
-      const accounts = await requestAccounts(injected)
-      setProvider(injected)
+      const accounts = await requestAccounts(wallet.provider)
+      setActiveWallet(wallet)
+      setProvider(wallet.provider)
       setAddress(accounts[0] ?? null)
-      await ensureNetwork(injected)
-      setChainId(await readChainId(injected))
+      await ensureNetwork(wallet.provider)
+      setChainId(await readChainId(wallet.provider))
     } catch (caught) {
       setError(readableError(caught))
     } finally {
       setConnecting(false)
     }
-  }, [provider])
+  }, [])
+
+  const connect = useCallback(async () => {
+    setError(null)
+    // A wallet enabled after page load has not announced itself yet, so ask again
+    // before deciding there is nothing installed.
+    if (walletsRef.current.length === 0) {
+      setConnecting(true)
+      requestWalletAnnouncements()
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      setConnecting(false)
+    }
+
+    const found = walletsRef.current
+    if (found.length === 0) {
+      setError('No wallet responded. Enable one for this site, then try again.')
+      return
+    }
+    // One wallet needs no question; several do.
+    if (found.length === 1) {
+      await choose(found[0] as WalletOption)
+      return
+    }
+    setPicking(true)
+  }, [choose])
+
+  const cancelPicking = useCallback(() => setPicking(false), [])
 
   const disconnect = useCallback(() => {
     // Wallets have no revoke call, so this just forgets the session locally.
     setAddress(null)
+    setActiveWallet(null)
+    setProvider(null)
+    setChainId(null)
     setBalance(0n)
     setError(null)
   }, [])
 
   const switchNetwork = useCallback(async () => {
-    const injected = provider ?? getInjectedProvider()
-    if (!injected) return
+    if (!provider) return
     setError(null)
     try {
-      await ensureNetwork(injected)
-      setChainId(await readChainId(injected))
+      await ensureNetwork(provider)
+      setChainId(await readChainId(provider))
     } catch (caught) {
       setError(readableError(caught))
     }
   }, [provider])
+
+  // Ask once per wrong network rather than on every render, so a declined switch does
+  // not turn into a loop of wallet prompts.
+  const promptedFor = useRef<number | null>(null)
+  useEffect(() => {
+    if (!provider || !address || chainId === null || chainId === CHAIN_ID) return
+    if (promptedFor.current === chainId) return
+    promptedFor.current = chainId
+    void switchNetwork()
+  }, [provider, address, chainId, switchNetwork])
 
   const client = useMemo<FluffClient | null>(() => {
     if (!provider || !address) return null
@@ -191,7 +253,12 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
 
   const value = useMemo<WalletContextValue>(
     () => ({
-      hasWallet: provider !== null,
+      hasWallet: wallets.length > 0,
+      wallets,
+      activeWallet,
+      picking,
+      choose,
+      cancelPicking,
       address,
       chainId,
       onCorrectNetwork: chainId === CHAIN_ID,
@@ -207,7 +274,11 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
       dismissTx,
     }),
     [
-      provider,
+      wallets,
+      activeWallet,
+      picking,
+      choose,
+      cancelPicking,
       address,
       chainId,
       balance,

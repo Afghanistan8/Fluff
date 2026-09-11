@@ -27,9 +27,14 @@ export function WalletButton(): ReactNode {
 
   if (!wallet.address) {
     return (
-      <Button size="sm" onClick={() => void wallet.connect()} disabled={wallet.connecting}>
-        {wallet.connecting ? 'Connecting…' : 'Connect'}
-      </Button>
+      <div className="flex flex-col items-end gap-1">
+        <Button size="sm" onClick={() => void wallet.connect()} disabled={wallet.connecting}>
+          {wallet.connecting ? 'Connecting…' : 'Connect'}
+        </Button>
+        {wallet.error ? (
+          <span className="max-w-[15rem] text-right text-xs text-alarm">{wallet.error}</span>
+        ) : null}
+      </div>
     )
   }
 
@@ -43,6 +48,9 @@ export function WalletButton(): ReactNode {
       <span className="tnum hidden text-cream-dim sm:inline">
         {formatGen(wallet.balance, 2)} GEN
       </span>
+      {wallet.activeWallet ? (
+        <span className="hidden text-cream-dim md:inline">{wallet.activeWallet.name}</span>
+      ) : null}
       <span className="tnum">{shortAddress(wallet.address)}</span>
     </button>
   )
