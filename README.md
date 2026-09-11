@@ -7,7 +7,7 @@ half hour on the GMT+1 clock, and stake native GEN on your answer.
 
 Anyone can open a future window. Betting closes automatically when the thirty minutes
 begin. Anyone can trigger settlement once they end. Fluff then reads independent reference
-candles from CoinGecko, Bitget and Binance. Each source picks its own winner from its own
+candles from Gate, Bitget and Binance. Each source picks its own winner from its own
 data, and two matching answers settle the market. Prices are never averaged across
 sources. Winners split the entire pool pari-mutuel at a **0% protocol fee**. If the sources
 cannot agree, the market is inconclusive and every bettor reclaims their exact stake.
@@ -26,7 +26,7 @@ These are crypto tokens over a short window, not equities.
 | Timezone | GMT+1, fixed all year |
 | Minimum bet | 1 GEN |
 | Protocol / creator / settlement fee | 0% |
-| Sources | CoinGecko, Bitget, Binance |
+| Sources | Gate, Bitget, Binance |
 | Consensus | 2 of 3 matching winners |
 | Settlement retry window | 3 hours after the window ends |
 
@@ -67,14 +67,14 @@ invented by the browser.
 Each source is read inside its own strict-equality equivalence block and returns one
 canonical JSON document. Validators compare that document and nothing else.
 
-**CoinGecko**, per token:
+**Gate**, per token:
 
 ```
-https://api.coingecko.com/api/v3/coins/{id}/market_chart/range?vs_currency=usd&from={start}&to={end}
+https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair={ASSET}_USDT&interval=30m&from={start}&to={end-1}
 ```
 
-`{id}` is `zcash`, `binancecoin` or `solana`. Open is the first sample at or after `start`;
-close is the last sample strictly before `end`.
+Timestamps are seconds. Gate orders its fields
+`[ts, quote_volume, close, high, low, open, ...]`, so open is field 5 and close field 2.
 
 **Bitget**, per token:
 
@@ -85,7 +85,7 @@ https://api.bitget.com/api/v3/market/candles?category=USDT-FUTURES&symbol={ASSET
 **Binance**, per token:
 
 ```
-https://api.binance.com/api/v3/klines?symbol={ASSET}USDT&interval=30m&startTime={start_ms}&endTime={end_ms-1}&limit=1
+https://data-api.binance.vision/api/v3/klines?symbol={ASSET}USDT&interval=30m&startTime={start_ms}&endTime={end_ms-1}&limit=1
 ```
 
 Responses must be HTTP 200, under 65,536 bytes, valid JSON, and must carry exactly one
@@ -191,7 +191,7 @@ cd frontend && bun run typecheck && bun run test
 Copy `frontend/.env.example` to `frontend/.env` and fill in the deployed address:
 
 ```
-VITE_FLUFF_CONTRACT_ADDRESS=0x13d318C4CDb688614DBCe3a6D49976624B4AB7B9
+VITE_FLUFF_CONTRACT_ADDRESS=0x163599354067123EFACa92EdA79E667A7CD6079d
 VITE_GENLAYER_NETWORK=studionet
 VITE_GENLAYER_CHAIN_ID=61999
 ```
@@ -232,7 +232,7 @@ Everything needed to run or redeploy Fluff, in one table.
 
 | | |
 | --- | --- |
-| Contract | `0x13d318C4CDb688614DBCe3a6D49976624B4AB7B9` |
+| Contract | `0x163599354067123EFACa92EdA79E667A7CD6079d` |
 | Chain | GenLayer Studio Network |
 | Chain ID | 61999 (`0xf22f`) |
 | RPC | `https://studio.genlayer.com/api` |

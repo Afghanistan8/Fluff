@@ -32,12 +32,11 @@ RETRY_WINDOW = 10800
 GEN = 10**18
 CATEGORY = "CRYPTO_MAJORS"
 ASSETS = ("ZEC", "BNB", "SOL")
-SOURCES = ("COINGECKO", "BITGET", "BINANCE")
-COINGECKO_IDS = {"ZEC": "zcash", "BNB": "binancecoin", "SOL": "solana"}
+SOURCES = ("GATE", "BITGET", "BINANCE")
 HOSTS = {
-    "COINGECKO": "api.coingecko.com",
+    "GATE": "api.gateio.ws",
     "BITGET": "api.bitget.com",
-    "BINANCE": "api.binance.com",
+    "BINANCE": "data-api.binance.vision",
 }
 
 # Thu 01 Jan 2026 00:00:00 UTC — itself an exact half-hour boundary.
@@ -61,27 +60,14 @@ def aligned_start(after: int) -> int:
 # --------------------------------------------------------------------------------------
 
 
-def coingecko_body(start: int, open_price: str, close_price: str) -> str:
-    """A days=1 market chart, the way CoinGecko actually answers.
+def gate_body(start: int, open_price: str, close_price: str) -> str:
+    """Gate orders its fields its own way and stamps in seconds, not milliseconds.
 
-    The payload spans a whole day at 5-minute granularity, so most of it sits outside
-    the window. Samples before the start, on the end boundary and after it are all
-    included here: the parser has to select purely by timestamp.
+    `[timestamp, quote_volume, close, high, low, open, base_volume, closed]`, so a
+    parser that assumed the usual open-high-low-close order would read this backwards.
     """
-    samples = [
-        # Well before the window, and priced to flip the winner if wrongly included.
-        (start * 1000 - 7_200_000, "1.0"),
-        (start * 1000 - 300_000, "999.0"),
-        # Inside the window.
-        (start * 1000, open_price),
-        (start * 1000 + 300_000, "999.0"),
-        ((start + WINDOW) * 1000 - 300_000, close_price),
-        # The sample on `end` is outside a half-open window, and after it.
-        ((start + WINDOW) * 1000, "1.0"),
-        ((start + WINDOW) * 1000 + 300_000, "1.0"),
-    ]
-    rows = ",".join(f"[{stamp},{price}]" for stamp, price in samples)
-    return '{"prices":[' + rows + "]}"
+    row = [str(start), "1000.0", close_price, close_price, open_price, open_price, "10.0", "true"]
+    return json.dumps([row])
 
 
 def bitget_body(start: int, open_price: str, close_price: str) -> str:
@@ -101,18 +87,18 @@ def binance_body(start: int, open_price: str, close_price: str) -> str:
 
 
 BODY_BUILDERS = {
-    "COINGECKO": coingecko_body,
+    "GATE": gate_body,
     "BITGET": bitget_body,
     "BINANCE": binance_body,
 }
 
 
 def url_fragment(source: str, asset: str) -> str:
-    if source == "COINGECKO":
-        return f"api.coingecko.com/api/v3/coins/{COINGECKO_IDS[asset]}/market_chart"
+    if source == "GATE":
+        return f"api.gateio.ws/api/v4/spot/candlesticks?currency_pair={asset}_USDT"
     if source == "BITGET":
         return f"api.bitget.com/api/v3/market/candles?category=USDT-FUTURES&symbol={asset}USDT"
-    return f"api.binance.com/api/v3/klines?symbol={asset}USDT"
+    return f"data-api.binance.vision/api/v3/klines?symbol={asset}USDT"
 
 
 class Broken:

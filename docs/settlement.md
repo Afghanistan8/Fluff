@@ -39,7 +39,7 @@ displayed, never for the outcome.
 
 | Vote order | Source id | Venue | Reference series |
 | --- | --- | --- | --- |
-| 1 | `COINGECKO` | CoinGecko | USD market chart, last 24h |
+| 1 | `GATE` | Gate | Spot USDT candle, 30m |
 | 2 | `BITGET` | Bitget | USDT-M futures index candle, 30m |
 | 3 | `BINANCE` | Binance | Spot USDT kline, 30m |
 
@@ -51,27 +51,18 @@ vote. A source is never partially counted.
 These are the only endpoints Fluff contacts. Validators do not choose alternates, and
 there is no HTML scraping fallback anywhere in the design.
 
-**CoinGecko** — one request per token:
+**Gate** — one request per token:
 
 ```
-https://api.coingecko.com/api/v3/coins/{id}/market_chart?vs_currency=usd&days=1
+https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair={ASSET}_USDT&interval=30m&from={start}&to={end_minus_1}
 ```
 
-| Token | `{id}` |
-| --- | --- |
-| ZEC | `zcash` |
-| BNB | `binancecoin` |
-| SOL | `solana` |
+`{ASSET}` is `ZEC`, `BNB` or `SOL`. Timestamps here are **seconds**, not milliseconds.
 
-This used to be `/market_chart/range`. That path now answers **HTTP 401**
-(`error_code 10012`) without a paid key, so CoinGecko cast no vote on every settle, and
-a single disagreement between the other two venues left every market inconclusive. The
-`days=1` chart is public and needs no key.
-
-It returns the last 24 hours at roughly 5-minute granularity, which always covers a
-window whose settlement deadline is three hours after it ends. Most of the payload sits
-outside the window, so the parser selects purely by timestamp and rejects a window it
-has no samples for.
+Gate replaced CoinGecko. CoinGecko could not vote in practice: its free tier
+rate-limits the burst of three calls settlement makes from one IP. A single call
+returns 200; three in a row return **429**. Measured from inside a GenLayer validator,
+not from a developer laptop, which is why it looked healthy in local testing.
 
 **Bitget** — one request per token:
 
@@ -84,12 +75,34 @@ https://api.bitget.com/api/v3/market/candles?category=USDT-FUTURES&symbol={ASSET
 **Binance** — one request per token:
 
 ```
-https://api.binance.com/api/v3/klines?symbol={ASSET}USDT&interval=30m&startTime={start_ms}&endTime={end_ms_minus_1}&limit=1
+https://data-api.binance.vision/api/v3/klines?symbol={ASSET}USDT&interval=30m&startTime={start_ms}&endTime={end_ms_minus_1}&limit=1
 ```
 
 `{ASSET}USDT` is `ZECUSDT`, `BNBUSDT`, `SOLUSDT`.
 
-### 2.1.1 Verify before trusting a settlement
+The host is **not** `api.binance.com`. That host answers **HTTP 451** from GenLayer
+validator IPs, "Service unavailable from a restricted location", so Binance could never
+vote. `data-api.binance.vision` is Binance's public market-data host, serves the
+identical kline payload and is not geo-fenced.
+
+### 2.1.1 What the validators can actually reach
+
+Endpoint health differs between a developer machine and a GenLayer validator, and only
+the validator's view matters. Measured from inside one, with a probe contract:
+
+| Endpoint | From a laptop | From a validator |
+| --- | --- | --- |
+| `api.coingecko.com` market_chart, single call | 200 | 200 |
+| `api.coingecko.com` market_chart, burst of three | 200 | **429** |
+| `api.binance.com` klines | 200 | **451**, geo-blocked |
+| `data-api.binance.vision` klines | 200 | 200 |
+| `api.gateio.ws` candlesticks, burst of three | 200 | 200 |
+| `api.bitget.com` index candles | 200 | 200 |
+
+Settlement makes three calls per source in one block, so the burst column is the one
+that decides whether a source can vote.
+
+### 2.1.2 Verify before trusting a settlement
 
 `scripts/check_sources.py` hits all nine live URLs over the last completed window and
 prints the status, open, close and the winner each source would vote for:
@@ -98,15 +111,15 @@ prints the status, open, close and the winner each source would vote for:
 python scripts/check_sources.py
 ```
 
-Recorded run, window `1789140600`–`1789142400` (15:30–16:00 UTC):
+Recorded run, window `1789156800`–`1789158600` (20:00–20:30 UTC):
 
 | Source | ZEC | BNB | SOL | Status | Vote |
 | --- | --- | --- | --- | --- | --- |
-| CoinGecko | -3.1023% | -0.6673% | -1.5930% | 200 | BNB |
-| Bitget | -2.8179% | -0.8702% | -1.7007% | 200 | BNB |
-| Binance | -2.8353% | -0.8465% | -1.6931% | 200 | BNB |
+| Gate | +0.1217% | +0.1517% | +0.4901% | 200 | SOL |
+| Bitget | +0.0834% | +0.1519% | +0.4737% | 200 | SOL |
+| Binance | +0.0825% | +0.1421% | +0.4705% | 200 | SOL |
 
-Consensus BNB, 3 of 3. The venues disagree on the exact prices, which is the point of
+Consensus SOL, 3 of 3. The venues disagree on the exact prices, which is the point of
 never averaging them, and still agree on the ordering.
 
 ### 2.2 Transport rules
@@ -130,26 +143,27 @@ single settle call.
 
 ## 3. Parsers
 
-### 3.1 CoinGecko
+### 3.1 Gate
 
-Response shape, a full day of samples:
+Response shape, one row:
 
 ```json
-{ "prices": [[1789140600000, 103.33], [1789140900000, 103.10], ...] }
+[["1789156800", "381222.86", "1176.34", "1193.99", "1174", "1174.91", "322.34", "true"]]
 ```
+
+Gate orders its fields its own way:
+`[timestamp_seconds, quote_volume, close, high, low, open, base_volume, closed]`.
 
 Rules:
 
-1. `prices` must be a non-empty list of `[timestamp_ms, price]` pairs.
-2. **Open** is the first sample whose timestamp is at or after `start`.
-3. **Close** is the last sample whose timestamp is strictly before `end`.
-4. Reject when either sample is missing, when open and close resolve to the same single
-   sample is not required — a one-sample window is accepted and yields a zero return —
-   but reject when the list contains no sample inside `[start, end)`.
-5. Reject any non-positive price.
-
-This is a reference path for one venue. It is not an average of other venues, and Fluff
-does not treat it as a market-wide consensus price.
+1. The response must be a list containing exactly one row.
+2. The row must have at least six fields.
+3. Field 0 is the candle open time **in seconds** and must equal `start` exactly.
+4. Field 5 is **open**, field 2 is **close**. Reading them in the usual order would
+   swap them and invert every return.
+5. Field 7, when present, must be `"true"`: a still-forming candle must not settle a
+   window.
+6. Reject any non-positive price.
 
 ### 3.2 Bitget
 

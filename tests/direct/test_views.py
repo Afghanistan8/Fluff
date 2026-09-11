@@ -14,7 +14,7 @@ def test_config_reports_the_whole_rulebook(chain: Chain):
     assert config["window_seconds"] == 1800
     assert config["timezone"] == "GMT+1"
     assert config["timezone_offset_seconds"] == 3600
-    assert config["sources"] == ["COINGECKO", "BITGET", "BINANCE"]
+    assert config["sources"] == ["GATE", "BITGET", "BINANCE"]
     assert config["consensus_threshold"] == 2
     assert config["consensus_rule"] == "2-of-3"
     assert config["settlement_retry_window_seconds"] == RETRY_WINDOW
@@ -164,7 +164,7 @@ def test_activity_is_empty_for_a_quiet_wallet(chain: Chain):
 def test_source_evidence_is_listed_before_any_settlement(chain: Chain, start: int):
     market_id = chain.create(start)
     rows = chain.call("get_source_evidence", market_id)
-    assert [row["source"] for row in rows] == ["COINGECKO", "BITGET", "BINANCE"]
+    assert [row["source"] for row in rows] == ["GATE", "BITGET", "BINANCE"]
     assert all(row["document"] == "" and row["has_evidence"] is False for row in rows)
 
 

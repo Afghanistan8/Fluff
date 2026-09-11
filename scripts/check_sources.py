@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Hit the three locked settlement endpoints and report what they actually return.
 
+Note: this runs from wherever you run it. A GenLayer validator sees a different
+internet. api.binance.com answers 451 from validator IPs and CoinGecko rate-limits the
+burst, neither of which reproduces on a laptop. See docs/settlement.md.
+
 Run this before trusting a settlement. It uses the last fully completed 30-minute
 window, the same bounds the contract uses, and prints the HTTP status, the parsed
 open/close and the winner each source would vote for.
@@ -21,7 +25,6 @@ import urllib.request
 
 WINDOW_SECONDS = 1800
 TOKENS = ("ZEC", "BNB", "SOL")
-COINGECKO_IDS = {"ZEC": "zcash", "BNB": "binancecoin", "SOL": "solana"}
 HEADERS = {"Accept": "application/json", "User-Agent": "Mozilla/5.0 (fluff source check)"}
 TIMEOUT = 45
 
@@ -40,15 +43,21 @@ def pct(open_price: float, close_price: float) -> float:
     return (close_price - open_price) * 100 / open_price
 
 
-def coingecko(token: str, start: int, end: int) -> tuple[int | None, tuple[float, float] | None, str]:
-    url = f"https://api.coingecko.com/api/v3/coins/{COINGECKO_IDS[token]}/market_chart?vs_currency=usd&days=1"
+def gate(token: str, start: int, end: int) -> tuple[int | None, tuple[float, float] | None, str]:
+    """Gate orders its fields [ts, quote_volume, close, high, low, open, ...]."""
+    url = (
+        "https://api.gateio.ws/api/v4/spot/candlesticks"
+        f"?currency_pair={token}_USDT&interval=30m&from={start}&to={end - 1}"
+    )
     status, body = fetch(url)
-    if status != 200 or not isinstance(body, dict):
+    if status != 200 or not isinstance(body, list):
         return status, None, "http"
-    inside = [p for p in body.get("prices", []) if start * 1000 <= p[0] < end * 1000]
-    if not inside:
-        return status, None, "window"
-    return status, (float(inside[0][1]), float(inside[-1][1])), ""
+    if len(body) != 1:
+        return status, None, "count"
+    row = body[0]
+    if int(row[0]) != start:
+        return status, None, "timestamp"
+    return status, (float(row[5]), float(row[2])), ""
 
 
 def bitget(token: str, start: int, end: int) -> tuple[int | None, tuple[float, float] | None, str]:
@@ -70,7 +79,7 @@ def bitget(token: str, start: int, end: int) -> tuple[int | None, tuple[float, f
 
 def binance(token: str, start: int, end: int) -> tuple[int | None, tuple[float, float] | None, str]:
     url = (
-        "https://api.binance.com/api/v3/klines"
+        "https://data-api.binance.vision/api/v3/klines"
         f"?symbol={token}USDT&interval=30m&startTime={start * 1000}&endTime={end * 1000 - 1}&limit=1"
     )
     status, body = fetch(url)
@@ -81,7 +90,7 @@ def binance(token: str, start: int, end: int) -> tuple[int | None, tuple[float, 
     return status, (float(body[0][1]), float(body[0][4])), ""
 
 
-SOURCES = {"COINGECKO": coingecko, "BITGET": bitget, "BINANCE": binance}
+SOURCES = {"GATE": gate, "BITGET": bitget, "BINANCE": binance}
 
 
 def main() -> int:

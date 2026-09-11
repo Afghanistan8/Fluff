@@ -72,10 +72,10 @@ ASSET_NAMES = {"ZEC": "Zcash", "BNB": "BNB", "SOL": "Solana"}
 # Canonical ordering for evidence rows, so two validators serialise them identically.
 ASSETS_CANONICAL = ("BNB", "SOL", "ZEC")
 
-SOURCE_COINGECKO = "COINGECKO"
+SOURCE_GATE = "GATE"
 SOURCE_BITGET = "BITGET"
 SOURCE_BINANCE = "BINANCE"
-SOURCES = (SOURCE_COINGECKO, SOURCE_BITGET, SOURCE_BINANCE)
+SOURCES = (SOURCE_GATE, SOURCE_BITGET, SOURCE_BINANCE)
 CONSENSUS_THRESHOLD = 2
 CANDLE_INTERVAL = "30m"
 
@@ -112,20 +112,26 @@ SETTLE_RESULT_INCONCLUSIVE = "INCONCLUSIVE"
 SETTLE_RESULT_RETRY = "NO_CONSENSUS_RETRY"
 
 # Locked endpoints. Validators never pick alternates and nothing here falls back to HTML.
-COINGECKO_IDS = {"ZEC": "zcash", "BNB": "binancecoin", "SOL": "solana"}
-# The /market_chart/range path now answers 401 without a paid key (error_code 10012),
-# which made CoinGecko cast no vote on every settle. The days=1 chart is public, covers
-# the last 24 hours at 5-minute granularity, and is therefore always wide enough for a
-# window whose settlement deadline is three hours after it ends.
-COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/{coin}/market_chart?vs_currency=usd&days=1"
+# CoinGecko used to be the first source. Its free tier rate-limits the burst of three
+# calls settlement makes from one IP: a single call returns 200, three in a row return
+# 429, so it never voted. Gate serves a public 30-minute spot candle per token with no
+# key and answers the same burst, verified from inside a validator.
+GATE_URL = (
+    "https://api.gateio.ws/api/v4/spot/candlesticks"
+    "?currency_pair={asset}_USDT&interval=30m&from={start}&to={end}"
+)
 BITGET_URL = (
     "https://api.bitget.com/api/v3/market/candles"
     "?category=USDT-FUTURES&symbol={asset}USDT&interval=30m&type=INDEX"
     "&startTime={start_ms}&endTime={end_ms}&limit=1"
 )
 BITGET_OK_CODE = "00000"
+# api.binance.com answers HTTP 451 from GenLayer validator IPs ("Service unavailable
+# from a restricted location"), so Binance could never vote. data-api.binance.vision is
+# Binance's public market-data host, serves the identical kline payload, and is not
+# geo-fenced. Same venue, same parser, a host that answers.
 BINANCE_URL = (
-    "https://api.binance.com/api/v3/klines"
+    "https://data-api.binance.vision/api/v3/klines"
     "?symbol={asset}USDT&interval=30m&startTime={start_ms}&endTime={end_ms}&limit=1"
 )
 
@@ -299,38 +305,26 @@ def _single_row_candle(rows: typing.Any, start_ms: int) -> tuple[int, int]:
     return _to_price(row[1]), _to_price(row[4])
 
 
-def _coingecko_candle(asset: str, start: int, end: int) -> tuple[int, int]:
-    # The payload spans a whole day; only samples inside [start, end) are considered.
-    payload = _http_json(COINGECKO_URL.format(coin=COINGECKO_IDS[asset]))
-    if not isinstance(payload, dict):
+def _gate_candle(asset: str, start: int, end: int) -> tuple[int, int]:
+    """Gate returns one row per window, and orders its fields its own way.
+
+    `[timestamp_seconds, quote_volume, close, high, low, open, base_volume, closed]`,
+    so open is field 5 and close is field 2. The timestamp is seconds, not milliseconds.
+    """
+    payload = _http_json(GATE_URL.format(asset=asset, start=start, end=end - 1))
+    if not isinstance(payload, list):
         raise _SourceFailure("shape")
-    samples = payload.get("prices")
-    if not isinstance(samples, list) or not samples:
+    if len(payload) != 1:
+        raise _SourceFailure("count")
+    row = payload[0]
+    if not isinstance(row, list) or len(row) < 6:
         raise _SourceFailure("shape")
-    start_ms = start * 1000
-    end_ms = end * 1000
-    open_stamp = -1
-    close_stamp = -1
-    open_price = 0
-    close_price = 0
-    for sample in samples:
-        if not isinstance(sample, list) or len(sample) < 2:
-            raise _SourceFailure("shape")
-        stamp = _to_int(sample[0])
-        if stamp < start_ms or stamp >= end_ms:
-            continue
-        price = _to_price(sample[1])
-        # Scanned rather than assumed sorted: first sample at or after start is the open,
-        # last sample strictly before end is the close.
-        if open_stamp < 0 or stamp < open_stamp:
-            open_stamp = stamp
-            open_price = price
-        if close_stamp < 0 or stamp > close_stamp:
-            close_stamp = stamp
-            close_price = price
-    if open_stamp < 0 or close_stamp < 0:
-        raise _SourceFailure("window")
-    return open_price, close_price
+    if _to_int(row[0]) != start:
+        raise _SourceFailure("timestamp")
+    # Field 7 marks a completed candle; a partial one must not settle a window.
+    if len(row) >= 8 and row[7] != "true":
+        raise _SourceFailure("count")
+    return _to_price(row[5]), _to_price(row[2])
 
 
 def _bitget_candle(asset: str, start: int, end: int) -> tuple[int, int]:
@@ -352,8 +346,8 @@ def _binance_candle(asset: str, start: int, end: int) -> tuple[int, int]:
 
 
 def _source_candle(source: str, asset: str, start: int, end: int) -> tuple[int, int]:
-    if source == SOURCE_COINGECKO:
-        return _coingecko_candle(asset, start, end)
+    if source == SOURCE_GATE:
+        return _gate_candle(asset, start, end)
     if source == SOURCE_BITGET:
         return _bitget_candle(asset, start, end)
     return _binance_candle(asset, start, end)

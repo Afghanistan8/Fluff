@@ -322,7 +322,7 @@ function MarketBody({
             <CardBody className="py-8">
               <p className="text-sm text-cream-dim">
                 Evidence appears once the window ends and someone triggers settlement. Fluff
-                reads CoinGecko, Bitget and Binance separately, and each one picks its own
+                reads Gate, Bitget and Binance separately, and each one picks its own
                 winner from its own candles.
               </p>
             </CardBody>

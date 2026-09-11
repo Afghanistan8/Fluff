@@ -8,7 +8,7 @@ import { formatReturnUnits } from '~/lib/market/payout'
 import { tokenStyle } from '~/lib/tokens'
 
 const SOURCE_NAMES: Record<string, string> = {
-  COINGECKO: 'CoinGecko',
+  GATE: 'Gate',
   BITGET: 'Bitget',
   BINANCE: 'Binance',
 }

@@ -9,13 +9,13 @@ import { tokenStyle } from '~/lib/tokens'
 import { cn } from '~/lib/utils'
 
 const SOURCE_NAMES = {
-  COINGECKO: 'CoinGecko',
+  GATE: 'Gate',
   BITGET: 'Bitget',
   BINANCE: 'Binance',
 } as const
 
 const SOURCE_SERIES = {
-  COINGECKO: 'USD market chart range',
+  GATE: 'Spot USDT candle, 30m',
   BITGET: 'USDT-M index candle, 30m',
   BINANCE: 'Spot USDT kline, 30m',
 } as const
@@ -37,13 +37,10 @@ const FAILURE_COPY: Record<string, string> = {
  * describe the same failure identically. It deliberately does not record the HTTP
  * status, which can differ between them, so the likely causes are named here instead.
  */
-function failureDetail(source: string, reason: string): string {
+function failureDetail(reason: string): string {
   const base = FAILURE_COPY[reason] ?? 'This source could not produce a complete candle set.'
   if (reason !== 'http') return base
-  if (source === 'COINGECKO') {
-    return `${base} For CoinGecko that is normally 401, meaning the path now needs a paid key, or 429, meaning rate limited.`
-  }
-  return `${base} Normally a rate limit or an outage at the venue.`
+  return `${base} Normally a rate limit, a geo-block, or an outage at the venue.`
 }
 
 function SourceCard({ evidence }: { evidence: SourceEvidence }): ReactNode {
@@ -118,7 +115,7 @@ function SourceCard({ evidence }: { evidence: SourceEvidence }): ReactNode {
           <div className="space-y-2">
             <p className="text-sm leading-relaxed text-cream-dim">
               {status === 'UNAVAILABLE'
-                ? failureDetail(source, reason)
+                ? failureDetail(reason)
                 : 'Nothing has been read from this source yet.'}
             </p>
             {status ? (

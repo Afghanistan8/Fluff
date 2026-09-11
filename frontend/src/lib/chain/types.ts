@@ -3,7 +3,7 @@
 export const TOKENS = ['ZEC', 'BNB', 'SOL'] as const
 export type TokenSymbol = (typeof TOKENS)[number]
 
-export const SOURCES = ['COINGECKO', 'BITGET', 'BINANCE'] as const
+export const SOURCES = ['GATE', 'BITGET', 'BINANCE'] as const
 export type SourceId = (typeof SOURCES)[number]
 
 export const CATEGORY_ID = 'CRYPTO_MAJORS'

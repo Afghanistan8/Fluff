@@ -84,7 +84,7 @@ def test_three_agreeing_sources_settle(chain: Chain, start: int):
 
 def test_two_agreeing_sources_settle_when_the_third_is_unavailable(chain: Chain, start: int):
     market_id = open_market(chain, start)
-    chain.script(start, {"COINGECKO": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": Broken()})
+    chain.script(start, {"GATE": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": Broken()})
     after_window(chain, start)
 
     assert chain.settle(market_id) == "SETTLED"
@@ -96,7 +96,7 @@ def test_two_agreeing_sources_settle_when_the_third_is_unavailable(chain: Chain,
 
 def test_two_agreeing_sources_settle_when_the_third_disagrees(chain: Chain, start: int):
     market_id = open_market(chain, start)
-    chain.script(start, {"COINGECKO": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": WINS_BNB})
+    chain.script(start, {"GATE": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": WINS_BNB})
     after_window(chain, start)
 
     assert chain.settle(market_id) == "SETTLED"
@@ -108,7 +108,7 @@ def test_two_agreeing_sources_settle_when_the_third_disagrees(chain: Chain, star
 
 def test_a_single_valid_vote_is_not_enough(chain: Chain, start: int):
     market_id = open_market(chain, start)
-    chain.script(start, {"COINGECKO": WINS_SOL, "BITGET": Broken(), "BINANCE": Broken()})
+    chain.script(start, {"GATE": WINS_SOL, "BITGET": Broken(), "BINANCE": Broken()})
     after_window(chain, start)
 
     assert chain.settle(market_id) == "NO_CONSENSUS_RETRY"
@@ -120,18 +120,18 @@ def test_a_single_valid_vote_is_not_enough(chain: Chain, start: int):
 
 def test_three_different_winners_reach_no_consensus(chain: Chain, start: int):
     market_id = open_market(chain, start)
-    chain.script(start, {"COINGECKO": WINS_SOL, "BITGET": WINS_BNB, "BINANCE": WINS_ZEC})
+    chain.script(start, {"GATE": WINS_SOL, "BITGET": WINS_BNB, "BINANCE": WINS_ZEC})
     after_window(chain, start)
 
     assert chain.settle(market_id) == "NO_CONSENSUS_RETRY"
     assert chain.market(market_id)["state"] == "OPEN"
     votes = {source: row["vote"] for source, row in chain.evidence(market_id).items()}
-    assert votes == {"COINGECKO": "SOL", "BITGET": "BNB", "BINANCE": "ZEC"}
+    assert votes == {"GATE": "SOL", "BITGET": "BNB", "BINANCE": "ZEC"}
 
 
 def test_every_source_unavailable_reaches_no_consensus(chain: Chain, start: int):
     market_id = open_market(chain, start)
-    chain.script(start, {source: Broken() for source in ("COINGECKO", "BITGET", "BINANCE")})
+    chain.script(start, {source: Broken() for source in ("GATE", "BITGET", "BINANCE")})
     after_window(chain, start)
 
     assert chain.settle(market_id) == "NO_CONSENSUS_RETRY"
@@ -140,19 +140,19 @@ def test_every_source_unavailable_reaches_no_consensus(chain: Chain, start: int)
 
 def test_a_tied_source_casts_no_vote(chain: Chain, start: int):
     market_id = open_market(chain, start)
-    chain.script(start, {"COINGECKO": TOP_TIE, "BITGET": WINS_SOL, "BINANCE": WINS_SOL})
+    chain.script(start, {"GATE": TOP_TIE, "BITGET": WINS_SOL, "BINANCE": WINS_SOL})
     after_window(chain, start)
 
     assert chain.settle(market_id) == "SETTLED"
-    coingecko = json.loads(chain.evidence(market_id)["COINGECKO"]["document"])
-    assert coingecko["status"] == "TIE"
-    assert coingecko["winner"] == ""
+    gate = json.loads(chain.evidence(market_id)["GATE"]["document"])
+    assert gate["status"] == "TIE"
+    assert gate["winner"] == ""
     assert chain.market(market_id)["consensus_votes"] == 2
 
 
 def test_two_ties_and_one_vote_reach_no_consensus(chain: Chain, start: int):
     market_id = open_market(chain, start)
-    chain.script(start, {"COINGECKO": TOP_TIE, "BITGET": TOP_TIE, "BINANCE": WINS_SOL})
+    chain.script(start, {"GATE": TOP_TIE, "BITGET": TOP_TIE, "BINANCE": WINS_SOL})
     after_window(chain, start)
 
     assert chain.settle(market_id) == "NO_CONSENSUS_RETRY"
@@ -174,7 +174,7 @@ def test_least_negative_token_wins_when_everything_falls(chain: Chain, start: in
 
 def test_a_failed_attempt_can_be_retried(chain: Chain, start: int):
     market_id = open_market(chain, start)
-    chain.script(start, {"COINGECKO": Broken(), "BITGET": Broken(), "BINANCE": Broken()})
+    chain.script(start, {"GATE": Broken(), "BITGET": Broken(), "BINANCE": Broken()})
     after_window(chain, start)
     assert chain.settle(market_id) == "NO_CONSENSUS_RETRY"
 
@@ -274,7 +274,7 @@ def test_evidence_is_stored_for_every_source(chain: Chain, start: int):
     chain.settle(market_id)
 
     rows = chain.call("get_source_evidence", market_id)
-    assert [row["source"] for row in rows] == ["COINGECKO", "BITGET", "BINANCE"]
+    assert [row["source"] for row in rows] == ["GATE", "BITGET", "BINANCE"]
     for row in rows:
         document = json.loads(row["document"])
         assert document["category"] == "CRYPTO_MAJORS"
@@ -312,7 +312,7 @@ def test_sources_are_read_independently_and_never_averaged(chain: Chain, start: 
     chain.script(
         start,
         {
-            "COINGECKO": WINS_SOL,
+            "GATE": WINS_SOL,
             "BITGET": WINS_SOL_OTHER_LEVEL,
             "BINANCE": WINS_SOL_OTHER_LEVEL,
         },
@@ -322,10 +322,10 @@ def test_sources_are_read_independently_and_never_averaged(chain: Chain, start: 
 
     evidence = chain.evidence(market_id)
     opens = {}
-    for source in ("COINGECKO", "BITGET"):
+    for source in ("GATE", "BITGET"):
         document = json.loads(evidence[source]["document"])
         opens[source] = {row["asset"]: row["open"] for row in document["rows"]}
-    assert opens["COINGECKO"]["SOL"] == str(100 * SCALE)
+    assert opens["GATE"]["SOL"] == str(100 * SCALE)
     assert opens["BITGET"]["SOL"] == str(250 * SCALE)
     # Identical returns despite different price levels, so both vote the same way.
     assert chain.market(market_id)["winner"] == "SOL"
@@ -344,7 +344,7 @@ def test_malformed_binance_responses_are_recorded_with_a_reason(
     chain: Chain, start: int, body: str, reason: str
 ):
     market_id = open_market(chain, start)
-    chain.script(start, {"COINGECKO": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": Raw(body)})
+    chain.script(start, {"GATE": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": Raw(body)})
     after_window(chain, start)
     chain.settle(market_id)
 
@@ -357,7 +357,7 @@ def test_malformed_binance_responses_are_recorded_with_a_reason(
 def test_a_candle_from_the_wrong_minute_is_rejected(chain: Chain, start: int):
     market_id = open_market(chain, start)
     wrong = binance_body(start + 60, "100", "102")
-    chain.script(start, {"COINGECKO": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": Raw(wrong)})
+    chain.script(start, {"GATE": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": Raw(wrong)})
     after_window(chain, start)
     chain.settle(market_id)
 
@@ -368,7 +368,7 @@ def test_a_candle_from_the_wrong_minute_is_rejected(chain: Chain, start: int):
 def test_a_bitget_business_error_is_rejected(chain: Chain, start: int):
     market_id = open_market(chain, start)
     error = json.dumps({"code": "40034", "msg": "param error", "data": []})
-    chain.script(start, {"COINGECKO": WINS_SOL, "BITGET": Raw(error), "BINANCE": WINS_SOL})
+    chain.script(start, {"GATE": WINS_SOL, "BITGET": Raw(error), "BINANCE": WINS_SOL})
     after_window(chain, start)
     chain.settle(market_id)
 
@@ -379,7 +379,7 @@ def test_a_bitget_business_error_is_rejected(chain: Chain, start: int):
 def test_a_non_positive_price_is_rejected(chain: Chain, start: int):
     market_id = open_market(chain, start)
     zero_open = binance_body(start, "0", "102")
-    chain.script(start, {"COINGECKO": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": Raw(zero_open)})
+    chain.script(start, {"GATE": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": Raw(zero_open)})
     after_window(chain, start)
     chain.settle(market_id)
 
@@ -389,7 +389,7 @@ def test_a_non_positive_price_is_rejected(chain: Chain, start: int):
 
 def test_an_http_error_is_recorded_as_http(chain: Chain, start: int):
     market_id = open_market(chain, start)
-    chain.script(start, {"COINGECKO": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": Broken(429)})
+    chain.script(start, {"GATE": WINS_SOL, "BITGET": WINS_SOL, "BINANCE": Broken(429)})
     after_window(chain, start)
     chain.settle(market_id)
 
@@ -398,14 +398,14 @@ def test_an_http_error_is_recorded_as_http(chain: Chain, start: int):
     assert document["reason"] == "http"
 
 
-def test_coingecko_samples_outside_the_window_are_ignored(chain: Chain, start: int):
+def test_gate_samples_outside_the_window_are_ignored(chain: Chain, start: int):
     """The scripted body carries a sample at `end` priced 1.0; using it would flip ZEC."""
     market_id = open_market(chain, start)
     chain.script_all(start, WINS_SOL)
     after_window(chain, start)
     chain.settle(market_id)
 
-    document = json.loads(chain.evidence(market_id)["COINGECKO"]["document"])
+    document = json.loads(chain.evidence(market_id)["GATE"]["document"])
     rows = {row["asset"]: row for row in document["rows"]}
     assert rows["ZEC"]["close"] == str(99 * SCALE)
     assert document["winner"] == "SOL"

@@ -22,7 +22,7 @@ const PROMISES = [
   },
   {
     title: 'Two of three sources decide',
-    body: 'CoinGecko, Bitget and Binance each read their own candles and name their own leader. Prices are never averaged.',
+    body: 'Gate, Bitget and Binance each read their own candles and name their own leader. Prices are never averaged.',
   },
   {
     title: 'Winners take the whole pool',

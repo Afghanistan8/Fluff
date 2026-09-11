@@ -21,7 +21,7 @@ const STEPS = [
   },
   {
     title: 'Three sources each pick a winner',
-    body: 'CoinGecko, Bitget and Binance are read independently. Each one reads its own completed 30-minute candle for all three tokens and names its own leader.',
+    body: 'Gate, Bitget and Binance are read independently. Each one reads its own completed 30-minute candle for all three tokens and names its own leader.',
   },
   {
     title: 'Two matching winners pay the pool',
@@ -126,7 +126,7 @@ function HowItWorksPage(): ReactNode {
                 ['Tokens', 'ZEC, BNB, SOL'],
                 ['Minimum bet', '1 GEN'],
                 ['Protocol fee', '0%'],
-                ['Sources', 'CoinGecko, Bitget, Binance'],
+                ['Sources', 'Gate, Bitget, Binance'],
                 ['Consensus', '2 of 3 matching winners'],
                 ['Settlement retry window', '3 hours after the window ends'],
                 ['Payout', 'Pari-mutuel, proportional to stake'],

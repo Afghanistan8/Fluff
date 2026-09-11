@@ -109,7 +109,7 @@ function SiteFooter(): ReactNode {
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-xs text-cream-faint sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <p>Fluff · permissionless 30-minute token dominance on GenLayer.</p>
         <p>
-          Zero protocol fee. Settlement reads CoinGecko, Bitget and Binance independently.
+          Zero protocol fee. Settlement reads Gate, Bitget and Binance independently.
         </p>
         {/* Printed so a build with a missing contract address is visible on the site
             itself, rather than only as an empty market list. */}

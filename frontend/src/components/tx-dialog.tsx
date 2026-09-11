@@ -55,7 +55,7 @@ export function TxDialog(): ReactNode {
 
         {tx.phase === 'confirming' ? (
           <p className="mt-3 text-xs leading-relaxed text-cream-faint">
-            Settlement reads CoinGecko, Bitget and Binance for all three tokens before
+            Settlement reads Gate, Bitget and Binance for all three tokens before
             consensus begins, so it can take several minutes.
           </p>
         ) : null}
