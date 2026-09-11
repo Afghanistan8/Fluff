@@ -4,6 +4,7 @@ import {
   cleanReason,
   isRetryableError,
   isWaitTimeout,
+  PAYOUT_BALANCE_NOTE,
   TxTimeoutError,
   readableError,
   receiptFailureReason,
@@ -339,5 +340,47 @@ describe('timeout is not failure', () => {
       }),
     ).rejects.toThrow('Betting closed for this window.')
     expect(phases).toEqual(['submitting', 'confirming', 'failure'])
+  })
+})
+
+describe('success note', () => {
+  it('is carried through only on success', async () => {
+    const states: TxState[] = []
+    await runTransaction({
+      label: 'Claim winnings',
+      submit: async () => '0xhash',
+      confirm: async () => successReceipt,
+      successNote: PAYOUT_BALANCE_NOTE,
+      onPhase: (state) => states.push(state),
+    })
+    expect(states.at(-1)?.phase).toBe('success')
+    expect(states.at(-1)?.note).toBe(PAYOUT_BALANCE_NOTE)
+    // Nothing to say while it is still running.
+    expect(states.filter((s) => s.phase !== 'success').every((s) => s.note === null)).toBe(true)
+  })
+
+  it('is absent when the caller supplies none', async () => {
+    const states: TxState[] = []
+    await runTransaction({
+      label: 'Bet on SOL',
+      submit: async () => '0xhash',
+      confirm: async () => successReceipt,
+      onPhase: (state) => states.push(state),
+    })
+    expect(states.at(-1)?.note).toBeNull()
+  })
+
+  it('is not shown when the write fails', async () => {
+    const states: TxState[] = []
+    await expect(
+      runTransaction({
+        label: 'Claim winnings',
+        submit: async () => '0xhash',
+        confirm: async () => failureReceipt,
+        successNote: PAYOUT_BALANCE_NOTE,
+        onPhase: (state) => states.push(state),
+      }),
+    ).rejects.toThrow()
+    expect(states.at(-1)?.note).toBeNull()
   })
 })

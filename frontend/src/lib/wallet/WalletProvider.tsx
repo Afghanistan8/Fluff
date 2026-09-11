@@ -62,6 +62,8 @@ export interface SendOptions {
   waitSeconds?: number
   /** Asks the chain whether the effect landed, used when the receipt never arrives. */
   verify?: () => Promise<boolean>
+  /** Shown once the write succeeds. */
+  successNote?: string
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null)
@@ -253,6 +255,7 @@ export function WalletProvider({ children }: { children: ReactNode }): ReactNode
           return String(hash)
         },
         verify: options.verify,
+        successNote: options.successNote,
         confirm: (hash) => {
           const intervalMs = 3000
           const waitSeconds = options.waitSeconds ?? DEFAULT_WAIT_SECONDS

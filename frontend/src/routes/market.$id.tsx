@@ -19,6 +19,7 @@ import { PHASE_COUNTDOWN_LABELS, derivePhase } from '~/lib/market/phase'
 import { formatGenWithUnit } from '~/lib/market/payout'
 import { formatMoment, formatWindow } from '~/lib/market/time'
 import { tokenStyle } from '~/lib/tokens'
+import { PAYOUT_BALANCE_NOTE } from '~/lib/wallet/tx'
 import { useWallet } from '~/lib/wallet/WalletProvider'
 
 export const Route = createFileRoute('/market/$id')({ component: MarketRoom })
@@ -81,6 +82,7 @@ function YourPosition({
     const call = kind === 'CLAIM' ? claimCall(market.id) : claimRefundCall(market.id)
     try {
       await wallet.send(call, kind === 'CLAIM' ? 'Claim winnings' : 'Claim refund', {
+        successNote: PAYOUT_BALANCE_NOTE,
         // The pull either happened or it did not; the chain knows which.
         verify: async () => {
           const latest = await getMarket(market.id)

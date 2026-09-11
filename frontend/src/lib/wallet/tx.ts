@@ -21,9 +21,17 @@ export interface TxState {
   error: string | null
   /** What the caller was trying to do, used for the dialog heading. */
   label: string | null
+  /** Shown once the write succeeds, when the caller has something to add. */
+  note: string | null
 }
 
-export const IDLE_TX: TxState = { phase: 'idle', hash: null, error: null, label: null }
+export const IDLE_TX: TxState = {
+  phase: 'idle',
+  hash: null,
+  error: null,
+  label: null,
+  note: null,
+}
 
 export const TX_PHASE_COPY: Record<TxPhase, string> = {
   idle: '',
@@ -33,6 +41,18 @@ export const TX_PHASE_COPY: Record<TxPhase, string> = {
   failure: 'Did not go through',
   timeout: 'Still running. Validators are taking longer than usual.',
 }
+
+/**
+ * Shown after a payout or refund.
+ *
+ * A GenLayer message credit to an ordinary wallet does not show up in the balance the
+ * wallet reports, so the header keeps the old figure for a while after a claim lands.
+ * Measured: a wallet reading 484 GEN had already received 7 more and could spend 489.
+ */
+export const PAYOUT_BALANCE_NOTE =
+  'The GEN is in your wallet. Your balance here may keep showing the old figure for a ' +
+  'few minutes, because this network reports a wallet balance before it reflects an ' +
+  'incoming contract payment. Nothing is missing.'
 
 /** Thrown when the receipt never arrived. The transaction may still be in flight. */
 export class TxTimeoutError extends Error {
@@ -144,6 +164,8 @@ export interface RunTxOptions {
    * never arrived, so a slow confirmation is not reported as a failure.
    */
   verify?: () => Promise<boolean>
+  /** Shown once the write succeeds. */
+  successNote?: string
 }
 
 /**
@@ -152,8 +174,13 @@ export interface RunTxOptions {
  * but reports an execution error.
  */
 export async function runTransaction(options: RunTxOptions): Promise<unknown> {
-  const { label, submit, confirm, onPhase, verify } = options
-  const report = (state: Omit<TxState, 'label'>): void => onPhase?.({ ...state, label })
+  const { label, submit, confirm, onPhase, verify, successNote } = options
+  const report = (state: Omit<TxState, 'label' | 'note'>): void =>
+    onPhase?.({
+      ...state,
+      label,
+      note: state.phase === 'success' ? (successNote ?? null) : null,
+    })
 
   report({ phase: 'submitting', hash: null, error: null })
   let hash: string

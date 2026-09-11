@@ -19,6 +19,7 @@ import { derivePhase } from '~/lib/market/phase'
 import { formatGenWithUnit } from '~/lib/market/payout'
 import { formatRelative, formatWindow } from '~/lib/market/time'
 import { tokenStyle } from '~/lib/tokens'
+import { PAYOUT_BALANCE_NOTE } from '~/lib/wallet/tx'
 import { useWallet } from '~/lib/wallet/WalletProvider'
 
 export const Route = createFileRoute('/portfolio')({ component: PortfolioPage })
@@ -68,6 +69,7 @@ function PositionRow({
       await wallet.send(
         kind === 'CLAIM' ? claimCall(position.marketId) : claimRefundCall(position.marketId),
         kind === 'CLAIM' ? 'Claim winnings' : 'Claim refund',
+        { successNote: PAYOUT_BALANCE_NOTE },
       )
       await refresh(position.marketId, wallet.address)
       onChange()

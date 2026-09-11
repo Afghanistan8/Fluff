@@ -60,6 +60,12 @@ export function TxDialog(): ReactNode {
           </p>
         ) : null}
 
+        {tx.phase === 'success' && tx.note ? (
+          <p className="mt-3 rounded-xl border border-line bg-ink p-3 text-xs leading-relaxed text-cream-dim">
+            {tx.note}
+          </p>
+        ) : null}
+
         {timedOut ? (
           <p className="mt-3 text-xs leading-relaxed text-cream-faint">
             It was submitted and has not been refused. Validators are still working, or the
