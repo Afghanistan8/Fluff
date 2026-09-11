@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -19,6 +20,12 @@ from gltest.direct import VMContext, create_address, deploy_contract
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = ROOT / "contracts" / "Fluff.py"
+
+# gltest's mocked VM only works with the SDK generation it was built against, so the
+# suite is pinned there rather than left on "latest", which resolves differently
+# depending on what happens to be in the local cache. The contract is compatible with
+# the newer SDK the live network runs; test_live_compile.py checks that against a node.
+SDK_VERSION = os.environ.get("FLUFF_SDK_VERSION", "v0.2.16")
 
 WINDOW = 1800
 RETRY_WINDOW = 10800
@@ -134,7 +141,7 @@ class Chain:
         self.transfers: list[tuple[object, int]] = []
         self._install_transfer_recorder()
         self.at(now)
-        self.contract = deploy_contract(CONTRACT, vm)
+        self.contract = deploy_contract(CONTRACT, vm, sdk_version=SDK_VERSION)
         # Built after the deploy: the SDK is loaded per test, so an address made
         # earlier would belong to a different `Address` class than the contract sees.
         self.alice = create_address("alice")

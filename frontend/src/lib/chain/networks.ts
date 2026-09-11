@@ -9,7 +9,7 @@
 import { studionet, testnetBradbury } from 'genlayer-js/chains'
 import type { GenLayerChain } from 'genlayer-js/types'
 
-export type NetworkId = 'bradbury' | 'studionet'
+export type NetworkId = 'bradbury' | 'studionet' | 'studiodev'
 
 export interface NetworkDescriptor {
   id: NetworkId
@@ -33,6 +33,18 @@ export const NETWORKS: Record<NetworkId, NetworkDescriptor> = {
     rpcUrl: 'https://rpc-bradbury.genlayer.com',
     explorerUrl: 'https://explorer-bradbury.genlayer.com',
   },
+  studiodev: {
+    id: 'studiodev',
+    // The studio dev sandbox. genlayer-js ships no preset for it, so the studio
+    // chain is reused with its endpoint and chain id overridden.
+    chain: { ...studionet, id: 61997, name: 'GenLayer Studio Dev',
+      rpcUrls: { default: { http: ['https://studio-dev.genlayer.com/api'] } } } as GenLayerChain,
+    label: 'Studio dev',
+    chainName: 'GenLayer Studio Dev',
+    chainId: 61997,
+    rpcUrl: 'https://studio-dev.genlayer.com/api',
+    explorerUrl: null,
+  },
   studionet: {
     id: 'studionet',
     chain: studionet,
@@ -48,7 +60,7 @@ export const NETWORKS: Record<NetworkId, NetworkDescriptor> = {
 export const DEFAULT_NETWORK: NetworkId = 'bradbury'
 
 export function isNetworkId(value: string): value is NetworkId {
-  return value === 'bradbury' || value === 'studionet'
+  return value === 'bradbury' || value === 'studionet' || value === 'studiodev'
 }
 
 export function resolveNetwork(name: string): NetworkDescriptor {

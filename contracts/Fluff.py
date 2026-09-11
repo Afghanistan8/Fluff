@@ -18,7 +18,21 @@ import json
 import typing
 from dataclasses import dataclass
 
-from genlayer import *
+import genlayer as _genlayer
+from genlayer import Address, u8, u32, u256
+
+# The SDK relocated its surface between releases: 0.2 nests everything under
+# `genlayer.gl` and exports `allow_storage`, 0.3 lifts the API to the package root
+# and renames it `allow`. Resolving both here keeps one source file that deploys on
+# the live network and still runs under the pinned local test runner.
+gl = getattr(_genlayer, "gl", _genlayer)
+
+try:
+    from genlayer.storage import TreeMap, allow
+except ImportError:  # SDK 0.2 layout
+    from genlayer import TreeMap, allow_storage as allow
+
+_ContractBase = getattr(gl, "Contract", None) or gl.contract.Contract
 
 # --------------------------------------------------------------------------------------
 # Protocol constants
@@ -132,9 +146,23 @@ def _require(condition: bool, message: str) -> None:
 # --------------------------------------------------------------------------------------
 
 
+def _message_raw() -> typing.Any:
+    """The raw message dict, under either SDK layout."""
+    raw = getattr(gl, "message_raw", None)
+    return gl.message.raw if raw is None else raw
+
+
+def _pay(recipient: Address, amount: int) -> None:
+    """Send native GEN, under either SDK layout."""
+    get_at = getattr(gl, "get_contract_at", None)
+    if get_at is None:
+        get_at = gl.contract.get_at
+    get_at(recipient).emit_transfer(value=amount)
+
+
 def _now() -> int:
     """Epoch seconds from the deterministic transaction datetime GenVM supplies."""
-    stamp = gl.message_raw["datetime"]
+    stamp = _message_raw()["datetime"]
     if isinstance(stamp, str):
         text = stamp.strip()
         if text.endswith("Z"):
@@ -399,7 +427,7 @@ def _read_vote(document: str) -> str:
 # --------------------------------------------------------------------------------------
 
 
-@allow_storage
+@allow
 @dataclass
 class Position:
     asset: str
@@ -408,7 +436,7 @@ class Position:
     refunded: bool
 
 
-@allow_storage
+@allow
 @dataclass
 class ActivityRecord:
     kind: u8
@@ -418,7 +446,7 @@ class ActivityRecord:
     at: u256
 
 
-@allow_storage
+@allow
 @dataclass
 class Market:
     id: u256
@@ -451,7 +479,7 @@ class Market:
 # --------------------------------------------------------------------------------------
 
 
-class Fluff(gl.Contract):
+class Fluff(_ContractBase):
     markets: TreeMap[u256, Market]
     open_ids: TreeMap[u256, u8]
     start_index: TreeMap[str, u256]
@@ -923,7 +951,7 @@ class Fluff(gl.Contract):
             payout = int(position.amount) * int(market.total_pool) // winner_pool
         market.paid_out = int(market.paid_out) + payout
         self._record(wallet, ACT_PAYOUT_CLAIMED, int(market.id), position.asset, payout, _now())
-        gl.get_contract_at(wallet).emit_transfer(value=payout)
+        _pay(wallet, payout)
 
     @gl.public.write
     def claim_refund(self, market_id: u256) -> None:
@@ -938,4 +966,4 @@ class Fluff(gl.Contract):
         position.refunded = True
         market.paid_out = int(market.paid_out) + amount
         self._record(wallet, ACT_REFUND_CLAIMED, int(market.id), position.asset, amount, _now())
-        gl.get_contract_at(wallet).emit_transfer(value=amount)
+        _pay(wallet, amount)
