@@ -165,11 +165,18 @@ def _message_raw() -> typing.Any:
 
 
 def _pay(recipient: Address, amount: int) -> None:
-    """Send native GEN, under either SDK layout."""
+    """Send native GEN, under either SDK layout.
+
+    Applied on `accepted` rather than the `finalized` default. A transfer queued for
+    finalization did not reach the wallet within twenty minutes on this network, while
+    the contract had already marked the claim used, which leaves a claimant with
+    nothing to re-pull. The state change and the transfer belong to the same
+    transaction, so if it is rolled back both go together.
+    """
     get_at = getattr(gl, "get_contract_at", None)
     if get_at is None:
         get_at = gl.contract.get_at
-    get_at(recipient).emit_transfer(value=amount)
+    get_at(recipient).emit_transfer(value=amount, on="accepted")
 
 
 def _now() -> int:

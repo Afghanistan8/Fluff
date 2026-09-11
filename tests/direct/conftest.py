@@ -133,6 +133,7 @@ class Chain:
     def __init__(self, vm: VMContext, now: int = BASE_TIME):
         self.vm = vm
         self.transfers: list[tuple[object, int]] = []
+        self.transfer_modes: list[object] = []
         self._install_transfer_recorder()
         self.at(now)
         self.contract = deploy_contract(CONTRACT, vm, sdk_version=SDK_VERSION)
@@ -147,6 +148,7 @@ class Chain:
 
     def _install_transfer_recorder(self) -> None:
         transfers = self.transfers
+        transfer_modes = self.transfer_modes
 
         def hook(_vm, request):
             # `emit_transfer` posts a bare message; the direct VM has no consensus layer
@@ -154,6 +156,9 @@ class Chain:
             if isinstance(request, dict) and "PostMessage" in request:
                 message = request["PostMessage"]
                 transfers.append((message["address"], int(message["value"])))
+                # The stage a transfer is applied at is a money decision, so it is
+                # recorded rather than ignored.
+                transfer_modes.append(message.get("on"))
                 return {"ok": None}
             return None
 

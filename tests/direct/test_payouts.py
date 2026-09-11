@@ -262,3 +262,23 @@ def test_refunding_is_recorded_in_activity(chain: Chain, start: int):
     feed = chain.call("get_user_activity", chain.bob, 0, 10)
     assert feed[0]["kind"] == "REFUND_CLAIMED"
     assert feed[0]["amount"] == 3 * GEN
+
+
+def test_payouts_are_applied_on_acceptance(chain: Chain, start: int):
+    """The stage a transfer is applied at is a money decision, so it is pinned here.
+
+    Both stages do deliver: a transfer queued for finalization was measured arriving
+    on chain, it was only the balance view that lagged. `accepted` debits sooner, at
+    the cost of applying before the transaction is final.
+    """
+    market_id = settled_on_sol(
+        chain, start, {chain.bob: ("SOL", 4 * GEN), chain.cara: ("ZEC", 6 * GEN)}
+    )
+    chain.call("claim", market_id, sender=chain.bob)
+    assert chain.transfer_modes == ["accepted"]
+
+
+def test_refunds_use_the_same_stage_as_payouts(chain: Chain, start: int):
+    market_id = inconclusive(chain, start, {chain.bob: ("SOL", 3 * GEN)})
+    chain.call("claim_refund", market_id, sender=chain.bob)
+    assert chain.transfer_modes == ["accepted"]

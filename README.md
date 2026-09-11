@@ -191,7 +191,7 @@ cd frontend && bun run typecheck && bun run test
 Copy `frontend/.env.example` to `frontend/.env` and fill in the deployed address:
 
 ```
-VITE_FLUFF_CONTRACT_ADDRESS=0x163599354067123EFACa92EdA79E667A7CD6079d
+VITE_FLUFF_CONTRACT_ADDRESS=0x02C43dca521d1B8EA8857f4B9F2D13647692388f
 VITE_GENLAYER_NETWORK=studionet
 VITE_GENLAYER_CHAIN_ID=61999
 ```
@@ -232,7 +232,7 @@ Everything needed to run or redeploy Fluff, in one table.
 
 | | |
 | --- | --- |
-| Contract | `0x163599354067123EFACa92EdA79E667A7CD6079d` |
+| Contract | `0x02C43dca521d1B8EA8857f4B9F2D13647692388f` |
 | Chain | GenLayer Studio Network |
 | Chain ID | 61999 (`0xf22f`) |
 | RPC | `https://studio.genlayer.com/api` |
