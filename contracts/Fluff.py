@@ -1,4 +1,4 @@
-# { "Depends": "py-genlayer:latest" }
+# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 """
 Fluff — a permissionless 30-minute token dominance market on GenLayer.
 
@@ -9,6 +9,11 @@ Anyone opens a future window. Betting closes when the window begins. Anyone trig
 settlement once it ends. Three independent reference sources each pick a winner from
 their own candles; two matching picks settle the market. Winners split the whole pool
 pari-mutuel with no fee of any kind. Without consensus every stake is refundable.
+
+The runner above is pinned to an exact hash on purpose. GenVM refuses the floating
+`:latest` and `:test` tags outside debug mode, so a tagged contract is accepted by
+consensus and then rejected at load as `invalid_contract`. The hash must match the
+GenVM the target network ships; see README, "Which SDK a network runs".
 
 Specification: docs/settlement.md
 """

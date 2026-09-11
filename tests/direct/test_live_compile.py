@@ -5,8 +5,9 @@ one the live networks execute. That gap is exactly how an API rename slips throu
 contract imported cleanly here while the chain rejected it as `invalid_contract`.
 
 This test closes the gap. It asks a node to load the contract with its own GenVM and
-return the ABI, which costs nothing and needs no funds. Network access is required, so
-it skips when the node cannot be reached.
+return the ABI, which costs nothing and needs no funds. It catches both failure modes
+seen in practice: an SDK API rename, and a runner pin the network cannot resolve.
+Network access is required, so it skips when the node cannot be reached.
 """
 
 from __future__ import annotations
@@ -20,9 +21,10 @@ import urllib.request
 import pytest
 from conftest import CONTRACT
 
-# The studio sandbox exposes schema extraction and returns real Python tracebacks,
-# which the testnet RPCs do not.
-NODE_URL = os.environ.get("FLUFF_COMPILE_NODE", "https://studio-dev.genlayer.com/api")
+# The studio endpoints expose schema extraction and return real tracebacks, which the
+# testnet RPCs do not. This one runs the same GenVM the contract's runner is pinned to,
+# so a pin that the target network cannot load fails here rather than on deploy.
+NODE_URL = os.environ.get("FLUFF_COMPILE_NODE", "https://studio.genlayer.com/api")
 TIMEOUT_SECONDS = 180
 
 EXPECTED_METHODS = {

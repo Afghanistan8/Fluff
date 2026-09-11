@@ -206,11 +206,14 @@ data.
 
 ## Deployment
 
-Fluff is live on the GenLayer Studio dev network:
+Fluff is live on the GenLayer Studio network (chain 61999):
 
 ```
-0x230039c2B8aB8d421f7b0B4ccA10b260403CD49E
+0x4611B896dB0B5EA49BB8D9229107b6Bd46701085
 ```
+
+Also deployed on the Studio dev network (chain 61997) at
+`0x230039c2B8aB8d421f7b0B4ccA10b260403CD49E`, from an earlier build.
 
 ## Networks
 
@@ -226,6 +229,30 @@ time, so moving a deployment is one environment variable plus the new address.
 
 Native token is GEN on all three, 1 GEN = 10^18 base units.
 
+### Pin the runner, never tag it
+
+The first line of `contracts/Fluff.py` names the GenVM runner. It must be an exact
+hash:
+
+```
+# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
+```
+
+GenVM refuses the floating `:latest` and `:test` tags outside debug mode. A tagged
+contract still reaches consensus and is still marked `ACCEPTED`, then fails at load
+with `invalid_contract` and no contract is created. The node log is the only place
+that says why:
+
+```
+:test/ :latest runner used in non-debug mode, this is not allowed
+```
+
+The hash above is the runner GenVM v0.2.16 ships, which is what the Studio network
+runs. A network on a different GenVM needs its own hash, and a pin the target cannot
+resolve fails as `runner not available`. `gltest` caches the runners it downloads
+under `~/.cache/gltest-direct/extracted/<version>/py-genlayer/<hash>`, which is where
+these hashes come from.
+
 ### Which SDK a network runs
 
 This matters more than it looks. The contract is executed by the GenVM the network
@@ -236,8 +263,8 @@ time as `invalid_contract`, which the testnet RPCs report as an opaque code with
 traceback.
 
 `contracts/Fluff.py` resolves both at import, so one file works either way. The studio
-endpoints return real Python tracebacks and will compile a contract for free, which is
-what `tests/direct/test_live_compile.py` uses to catch this class of drift:
+endpoints return real tracebacks and will compile a contract for free, which is what
+`tests/direct/test_live_compile.py` uses to catch both this and a bad runner pin:
 
 ```bash
 pytest tests/direct/test_live_compile.py -q
