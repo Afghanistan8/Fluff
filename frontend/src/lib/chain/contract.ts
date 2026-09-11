@@ -5,6 +5,8 @@
  * app never computes a winner, a payout or a settlement price: it asks the contract.
  */
 
+import { CalldataAddress } from 'genlayer-js/types'
+
 import { env } from '~/lib/env'
 import { sharedReadClient, type FluffClient } from '~/lib/chain/client'
 import {
@@ -63,6 +65,23 @@ const ACTIVITY_KINDS = [
 ] as const satisfies readonly ActivityKind[]
 const EVIDENCE_STATUSES = ['VALID', 'TIE', 'UNAVAILABLE'] as const satisfies readonly EvidenceStatus[]
 
+/**
+ * Wrap a wallet address for calldata.
+ *
+ * An address argument has its own calldata type. Passing the hex string instead
+ * encodes it as a string, the contract's `TreeMap[Address, ...]` lookup never matches,
+ * and the call fails on the node with a bare "execution failed".
+ */
+export function addressArg(hex: string): CalldataAddress {
+  const body = hex.startsWith('0x') ? hex.slice(2) : hex
+  if (body.length !== 40) throw new Error(`not an address: ${hex}`)
+  const bytes = new Uint8Array(20)
+  for (let index = 0; index < 20; index += 1) {
+    bytes[index] = Number.parseInt(body.slice(index * 2, index * 2 + 2), 16)
+  }
+  return new CalldataAddress(bytes)
+}
+
 export class ContractNotConfiguredError extends Error {
   constructor() {
     super('Set VITE_FLUFF_CONTRACT_ADDRESS to the deployed Fluff address.')
@@ -70,9 +89,11 @@ export class ContractNotConfiguredError extends Error {
   }
 }
 
+type ReadArg = string | number | bigint | CalldataAddress
+
 async function read(
   functionName: string,
-  args: (string | number | bigint)[] = [],
+  args: ReadArg[] = [],
   client: FluffClient = sharedReadClient(),
 ): Promise<unknown> {
   if (!env.isConfigured) throw new ContractNotConfiguredError()
@@ -322,7 +343,7 @@ export async function getBettingState(marketId: number): Promise<BettingState> {
 }
 
 export async function getUserPosition(marketId: number, wallet: string): Promise<Position> {
-  return decodePosition(await read('get_user_position', [marketId, wallet]))
+  return decodePosition(await read('get_user_position', [marketId, addressArg(wallet)]))
 }
 
 export async function getUserPositions(
@@ -330,7 +351,10 @@ export async function getUserPositions(
   offset = 0,
   limit = PAGE_LIMIT,
 ): Promise<Position[]> {
-  const rows = asArray(await read('get_user_positions', [wallet, offset, limit]), 'positions')
+  const rows = asArray(
+    await read('get_user_positions', [addressArg(wallet), offset, limit]),
+    'positions',
+  )
   return rows.map((row, index) => decodePosition(row, `positions[${index}]`))
 }
 
@@ -339,7 +363,10 @@ export async function getClaimableMarkets(
   offset = 0,
   limit = PAGE_LIMIT,
 ): Promise<Position[]> {
-  const rows = asArray(await read('get_claimable_markets', [wallet, offset, limit]), 'claimable')
+  const rows = asArray(
+    await read('get_claimable_markets', [addressArg(wallet), offset, limit]),
+    'claimable',
+  )
   return rows.map((row, index) => decodePosition(row, `claimable[${index}]`))
 }
 
@@ -367,7 +394,7 @@ export async function getSourceEvidence(marketId: number): Promise<SourceEvidenc
 }
 
 export async function getUserActivityCount(wallet: string): Promise<number> {
-  return asNumber(await read('get_user_activity_count', [wallet]), 'activityCount')
+  return asNumber(await read('get_user_activity_count', [addressArg(wallet)]), 'activityCount')
 }
 
 export async function getUserActivity(
@@ -375,7 +402,10 @@ export async function getUserActivity(
   offset = 0,
   limit = 20,
 ): Promise<ActivityEntry[]> {
-  const rows = asArray(await read('get_user_activity', [wallet, offset, limit]), 'activity')
+  const rows = asArray(
+    await read('get_user_activity', [addressArg(wallet), offset, limit]),
+    'activity',
+  )
   return rows.map((row, index) => decodeActivity(row, `activity[${index}]`))
 }
 
